@@ -198,3 +198,4 @@ C:\Users\josef.prochazka\source\repos\AnonymousDataExplorer\AnonymousDataExplore
 C:\Users\josef.prochazka\source\repos\AnonymousDataExplorer\AnonymousDataExplorer\bin\Debug\net8.0\runtimes\win-x64\native\e_sqlite3.dll
 C:\Users\josef.prochazka\source\repos\AnonymousDataExplorer\AnonymousDataExplorer\bin\Debug\net8.0\runtimes\win-x86\native\e_sqlite3.dll
 C:\Users\josef.prochazka\source\repos\AnonymousDataExplorer\AnonymousDataExplorer\bin\Debug\net8.0\runtimes\browser\lib\net8.0\System.Text.Encodings.Web.dll
+C:\Users\josef.prochazka\source\repos\AnonymousDataExplorer\AnonymousDataExplorer\obj\Debug\net8.0\AnonymousDataExplorer.sourcelink.json

@@ -8,7 +8,7 @@ namespace AnonymousDataExplorer.Services
 
 		public DatabaseService(IConfiguration configuration)
 		{
-			_connectionString = configuration.GetConnectionString("Default");
+			_connectionString = configuration.GetConnectionString("DefaultConnection");
 		}
 
 		public async Task<List<string>> GetTableNamesAsync()

@@ -2,6 +2,8 @@
 @using AnonymousDataExplorer.Services
 @inject DatabaseService DbService
 
+<h4>Výběr tabulky</h4>
+
 @if (Tables.Count == 0)
 {
     <p style="color:red">Žádné tabulky nenalezeny</p>
@@ -17,25 +19,59 @@ else
     </select>
 }
 
+@if (!string.IsNullOrEmpty(SelectedTable) && ColumnNames.Count > 0)
+{
+    <h4>Data v tabulce @SelectedTable</h4>
+    <table class="table">
+        <thead>
+            <tr>
+                @foreach (var col in ColumnNames)
+                {
+                    <th>@col</th>
+                }
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var row in DataRows)
+            {
+                <tr>
+                    @foreach (var col in ColumnNames)
+                    {
+                        <td>@(row.TryGetValue(col, out var val) ? val : "")</td>
+                    }
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
 @code {
     private List<string> Tables = new();
+    private string? SelectedTable;
+    private List<string> ColumnNames = new();
+    private List<Dictionary<string, object>> DataRows = new();
 
     protected override async Task OnInitializedAsync()
     {
-        try
-        {
-            Tables = await DbService.GetTableNamesAsync();
-            Console.WriteLine($"Načteno tabulek: {Tables.Count}");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Chyba při načítání tabulek: {ex.Message}");
-        }
+        Tables = await DbService.GetTableNamesAsync();
     }
 
-    private void OnTableChanged(ChangeEventArgs e)
+    private async Task OnTableChanged(ChangeEventArgs e)
     {
-        var selected = e.Value?.ToString();
-        Console.WriteLine($"Vybraná tabulka: {selected}");
+        SelectedTable = e.Value?.ToString();
+        Console.WriteLine($"Vybraná tabulka: {SelectedTable}");
+
+        if (!string.IsNullOrEmpty(SelectedTable))
+        {
+            ColumnNames = await DbService.GetColumnNamesOnlyAsync(SelectedTable);
+            DataRows = await DbService.GetDataRowsAsync(SelectedTable);
+        }
+        else
+        {
+            ColumnNames.Clear();
+            DataRows.Clear();
+        }
+
+        StateHasChanged();
     }
 }

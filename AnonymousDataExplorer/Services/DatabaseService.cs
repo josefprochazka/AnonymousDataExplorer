@@ -30,5 +30,51 @@ namespace AnonymousDataExplorer.Services
 
 			return result;
 		}
+
+		public async Task<List<Dictionary<string, object>>> GetDataRowsAsync(string tableName)
+		{
+			var rows = new List<Dictionary<string, object>>();
+
+			using var connection = new SqliteConnection(_connectionString);
+			await connection.OpenAsync();
+
+			var command = connection.CreateCommand();
+			command.CommandText = $"SELECT * FROM [{tableName}]";
+
+			using var reader = await command.ExecuteReaderAsync();
+			while (await reader.ReadAsync())
+			{
+				var row = new Dictionary<string, object>();
+				for (int i = 0; i < reader.FieldCount; i++)
+				{
+					row[reader.GetName(i)] = reader.GetValue(i);
+				}
+				rows.Add(row);
+			}
+
+			return rows;
+		}
+
+		public async Task<List<string>> GetColumnNamesOnlyAsync(string tableName)
+		{
+			var result = new List<string>();
+
+			using var conn = new SqliteConnection(_connectionString);
+			await conn.OpenAsync();
+
+			using var cmd = conn.CreateCommand();
+			cmd.CommandText = $"PRAGMA table_info({tableName});";
+
+			using var reader = await cmd.ExecuteReaderAsync();
+			while (await reader.ReadAsync())
+			{
+				var name = reader["name"].ToString();
+				if (!string.IsNullOrEmpty(name))
+					result.Add(name);
+			}
+
+			return result;
+		}
+
 	}
 }

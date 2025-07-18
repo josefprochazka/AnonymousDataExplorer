@@ -1,0 +1,25 @@
+﻿@using AnonymousDataExplorer.Services
+@inject DatabaseService DbService
+
+<select @onchange="OnTableChanged">
+    <option value="">-- vyber tabulku --</option>
+    @foreach (var table in Tables)
+    {
+        <option value="@table">@table</option>
+    }
+</select>
+
+@code {
+    private List<string> Tables = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        Tables = await DbService.GetTableNamesAsync();
+    }
+
+    private void OnTableChanged(ChangeEventArgs e)
+    {
+        var selected = e.Value?.ToString();
+        Console.WriteLine($"Vybraná tabulka: {selected}");
+    }
+}

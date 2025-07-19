@@ -94,5 +94,30 @@ namespace AnonymousDataExplorer.Services
 
 			return result;
 		}
+
+		public async Task UpdateRowAsync(string tableName, string keyColumn, object keyValue, Dictionary<string, object> data)
+		{
+			using var connection = new SqliteConnection(_connectionString);
+			await connection.OpenAsync();
+
+			var setParts = data
+				.Where(kvp => kvp.Key != keyColumn)
+				.Select(kvp => $"{kvp.Key} = @{kvp.Key}").ToArray();
+
+			var setClause = string.Join(", ", setParts);
+
+			var command = connection.CreateCommand();
+			command.CommandText = $"UPDATE [{tableName}] SET {setClause} WHERE {keyColumn} = @keyValue";
+
+			foreach (var kvp in data.Where(kvp => kvp.Key != keyColumn))
+			{
+				command.Parameters.AddWithValue($"@{kvp.Key}", kvp.Value ?? DBNull.Value);
+			}
+
+			command.Parameters.AddWithValue("@keyValue", keyValue);
+
+			await command.ExecuteNonQueryAsync();
+		}
+
 	}
 }

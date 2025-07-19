@@ -48,7 +48,33 @@ else
             }
         </GridColumns>
     </TelerikGrid>
+}
 
+@if (EditDialogVisible)
+{
+    <div class="modal show d-block" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Editace záznamu</h5>
+                    <button type="button" class="btn-close" @onclick="() => EditDialogVisible = false"></button>
+                </div>
+                <div class="modal-body">
+                    @foreach (var col in ColumnNames)
+                    {
+                        <div class="mb-2">
+                            <label>@col</label>
+                            <input class="form-control" @bind="EditRowString[col]" />
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="() => EditDialogVisible = false">Zrušit</button>
+                    <button class="btn btn-primary" @onclick="SaveEditAsync">Uložit</button>
+                </div>
+            </div>
+        </div>
+    </div>
 }
 
 @code {
@@ -56,6 +82,11 @@ else
     private string? SelectedTable;
     private List<string> ColumnNames = new();
     private List<Dictionary<string, object>> DataRows = new();
+
+    private Dictionary<string, object> EditRow = new();   // originál řádek
+    private Dictionary<string, string> EditRowString = new(); // stringView pro editaci
+    private object? EditKey;
+    private bool EditDialogVisible = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -65,8 +96,6 @@ else
     private async Task OnTableChanged(ChangeEventArgs e)
     {
         SelectedTable = e.Value?.ToString();
-        Console.WriteLine($"Vybraná tabulka: {SelectedTable}");
-
         if (!string.IsNullOrEmpty(SelectedTable))
         {
             ColumnNames = await DbService.GetColumnNamesOnlyAsync(SelectedTable);
@@ -77,26 +106,42 @@ else
             ColumnNames.Clear();
             DataRows.Clear();
         }
-
-        StateHasChanged();
     }
 
     private void EditItem(Dictionary<string, object> item)
     {
-        Console.WriteLine($"Editovat: {GetPkValue(item)}");
-        // TODO: Implementace editace
+        EditRow = new(item);
+        EditRowString = item.ToDictionary(x => x.Key, x => x.Value?.ToString() ?? "");
+        EditKey = GetPkValue(item);
+        EditDialogVisible = true;
+    }
+
+    private async Task SaveEditAsync()
+    {
+        if (SelectedTable is null || string.IsNullOrEmpty(SelectedTable) || ColumnNames.Count == 0)
+            return;
+
+        var keyColumn = ColumnNames.First();
+        foreach (var col in ColumnNames)
+        {
+            EditRow[col] = EditRowString[col];
+        }
+
+        await DbService.UpdateRowAsync(SelectedTable, keyColumn, EditKey!, EditRow);
+        DataRows = await DbService.GetDataRowsAsync(SelectedTable);
+        EditDialogVisible = false;
     }
 
     private void DetailItem(Dictionary<string, object> item)
     {
         Console.WriteLine($"Detail: {GetPkValue(item)}");
-        // TODO: Implementace detailu
+        // TODO: Detail logika
     }
 
     private void DeleteItem(Dictionary<string, object> item)
     {
         Console.WriteLine($"Smazat: {GetPkValue(item)}");
-        // TODO: Implementace mazání
+        // TODO: Mazání
     }
 
     private object? GetPkValue(Dictionary<string, object> item)

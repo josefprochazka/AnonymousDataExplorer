@@ -77,6 +77,33 @@ else
     </div>
 }
 
+@if (DetailDialogVisible)
+{
+    <div class="modal show d-block" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Detail záznamu</h5>
+                    <button type="button" class="btn-close" @onclick="() => DetailDialogVisible = false"></button>
+                </div>
+                <div class="modal-body">
+                    @foreach (var col in ColumnNames)
+                    {
+                        <div class="mb-2">
+                            <label>@col</label>
+                            <input class="form-control" value="@DetailRowString[col]" readonly />
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="() => DetailDialogVisible = false">Zavřít</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+
 @code {
     private List<string> Tables = new();
     private string? SelectedTable;
@@ -87,6 +114,9 @@ else
     private Dictionary<string, string> EditRowString = new(); // stringView pro editaci
     private object? EditKey;
     private bool EditDialogVisible = false;
+
+    private Dictionary<string, string> DetailRowString = new();
+    private bool DetailDialogVisible = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -134,9 +164,10 @@ else
 
     private void DetailItem(Dictionary<string, object> item)
     {
-        Console.WriteLine($"Detail: {GetPkValue(item)}");
-        // TODO: Detail logika
+        DetailRowString = item.ToDictionary(x => x.Key, x => x.Value?.ToString() ?? "");
+        DetailDialogVisible = true;
     }
+
 
     private void DeleteItem(Dictionary<string, object> item)
     {

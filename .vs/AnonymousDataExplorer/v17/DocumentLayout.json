@@ -31,8 +31,7 @@
               "ViewState": "AgIAAEwAAAAAAAAAAAAzwHgAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2025-07-19T13:04:24.013Z",
-              "IsPinned": true,
-              "EditorCaption": ""
+              "IsPinned": true
             },
             {
               "$type": "Document",
@@ -42,7 +41,7 @@
               "RelativeDocumentMoniker": "AnonymousDataExplorer\\Components\\TableSelector.razor",
               "ToolTip": "C:\\Users\\josef.prochazka\\source\\repos\\AnonymousDataExplorer\\AnonymousDataExplorer\\Components\\TableSelector.razor",
               "RelativeToolTip": "AnonymousDataExplorer\\Components\\TableSelector.razor",
-              "ViewState": "AgIAAGYAAAAAAAAAAAAQwIMAAAAiAAAAAAAAAA==",
+              "ViewState": "AgIAAIUAAAAAAAAAAAAQwLYAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
               "WhenOpened": "2025-07-19T12:46:01.545Z",
               "IsPinned": true,

@@ -1,5 +1,6 @@
 ﻿@rendermode InteractiveServer
 @using AnonymousDataExplorer.Services
+@using Telerik.Blazor.Components
 @inject DatabaseService DbService
 
 <h4>Výběr tabulky</h4>
@@ -22,27 +23,16 @@ else
 @if (!string.IsNullOrEmpty(SelectedTable) && ColumnNames.Count > 0)
 {
     <h4>Data v tabulce @SelectedTable</h4>
-    <table class="table">
-        <thead>
-            <tr>
-                @foreach (var col in ColumnNames)
-                {
-                    <th>@col</th>
-                }
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var row in DataRows)
+
+    <TelerikGrid Data="@DataRows" Pageable="true" Groupable="true" Height="500px">
+        <GridColumns>
+            @foreach (var col in ColumnNames)
             {
-                <tr>
-                    @foreach (var col in ColumnNames)
-                    {
-                        <td>@(row.TryGetValue(col, out var val) ? val : "")</td>
-                    }
-                </tr>
+                <GridColumn Field="@col" Title="@col" FieldType="typeof(object)" />
             }
-        </tbody>
-    </table>
+        </GridColumns>
+    </TelerikGrid>
+
 }
 
 @code {

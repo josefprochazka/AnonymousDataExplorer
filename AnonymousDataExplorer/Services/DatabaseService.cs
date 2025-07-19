@@ -1,13 +1,32 @@
 ﻿using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 
 namespace AnonymousDataExplorer.Services
 {
-	public class DatabaseService
+	public class AppDbContext : DbContext
 	{
 		private readonly string _connectionString;
 
-		public DatabaseService(IConfiguration configuration)
+		public AppDbContext(IConfiguration configuration)
 		{
+			_connectionString = configuration.GetConnectionString("DefaultConnection");
+		}
+
+		protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+		{
+			optionsBuilder.UseSqlite(_connectionString);
+		}
+	}
+
+	public class DatabaseService
+	{
+		private readonly AppDbContext _context;
+		private readonly string _connectionString;
+
+		public DatabaseService(AppDbContext context, IConfiguration configuration)
+		{
+			_context = context;
 			_connectionString = configuration.GetConnectionString("DefaultConnection");
 		}
 
@@ -19,8 +38,8 @@ namespace AnonymousDataExplorer.Services
 			await connection.OpenAsync();
 
 			var command = new SqliteCommand(
-				   "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';",
-				   connection);
+				"SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';",
+				connection);
 
 			using var reader = await command.ExecuteReaderAsync();
 			while (await reader.ReadAsync())
@@ -75,6 +94,5 @@ namespace AnonymousDataExplorer.Services
 
 			return result;
 		}
-
 	}
 }

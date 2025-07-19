@@ -1,5 +1,6 @@
 using AnonymousDataExplorer.Components;
 using AnonymousDataExplorer.Services;
+using System;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -8,7 +9,8 @@ builder.Services.AddRazorComponents()
 	.AddInteractiveServerComponents();
 builder.Services.AddTelerikBlazor();
 
-builder.Services.AddSingleton<DatabaseService>();
+builder.Services.AddScoped<DatabaseService>();
+builder.Services.AddDbContext<AppDbContext>();
 
 var app = builder.Build();
 

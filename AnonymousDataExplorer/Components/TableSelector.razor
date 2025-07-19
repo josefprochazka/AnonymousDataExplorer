@@ -169,10 +169,19 @@ else
     }
 
 
-    private void DeleteItem(Dictionary<string, object> item)
+    private async void DeleteItem(Dictionary<string, object> item)
     {
-        Console.WriteLine($"Smazat: {GetPkValue(item)}");
-        // TODO: Mazání
+        if (SelectedTable is null)
+            return;
+
+        var keyColumn = await DbService.GetPrimaryKeyColumnAsync(SelectedTable);
+        var keyValue = GetPkValue(item);
+
+        if (keyColumn is null || keyValue is null)
+            return;
+
+        await DbService.DeleteRowAsync(SelectedTable, keyColumn, keyValue);
+        DataRows = await DbService.GetDataRowsAsync(SelectedTable);
     }
 
     private object? GetPkValue(Dictionary<string, object> item)

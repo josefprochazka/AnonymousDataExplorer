@@ -119,5 +119,36 @@ namespace AnonymousDataExplorer.Services
 			await command.ExecuteNonQueryAsync();
 		}
 
+		public async Task<string?> GetPrimaryKeyColumnAsync(string tableName)
+		{
+			using var conn = new SqliteConnection(_connectionString);
+			await conn.OpenAsync();
+
+			var cmd = conn.CreateCommand();
+			cmd.CommandText = $"PRAGMA table_info({tableName});";
+
+			using var reader = await cmd.ExecuteReaderAsync();
+			while (await reader.ReadAsync())
+			{
+				var isPk = reader.GetInt32(reader.GetOrdinal("pk"));
+				if (isPk == 1)
+					return reader.GetString(reader.GetOrdinal("name")); // název PK sloupce
+			}
+
+			return null;
+		}
+
+		public async Task DeleteRowAsync(string tableName, string pkColumn, object pkValue)
+		{
+			using var conn = new SqliteConnection(_connectionString);
+			await conn.OpenAsync();
+
+			var cmd = conn.CreateCommand();
+			cmd.CommandText = $"DELETE FROM [{tableName}] WHERE [{pkColumn}] = @id";
+			cmd.Parameters.AddWithValue("@id", pkValue);
+
+			await cmd.ExecuteNonQueryAsync();
+		}
+
 	}
 }

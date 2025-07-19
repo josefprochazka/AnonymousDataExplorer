@@ -18,6 +18,7 @@
           "C:\\Program Files (x86)\\Progress\\ToolboxNuGetPackages"
         ],
         "configFilePaths": [
+          "C:\\Users\\josef.prochazka\\source\\repos\\AnonymousDataExplorer\\NuGet.Config",
           "C:\\Users\\josef.prochazka\\AppData\\Roaming\\NuGet\\NuGet.Config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config",
@@ -28,8 +29,8 @@
         ],
         "sources": {
           "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
-          "V:\\Telerik_packages": {},
-          "https://api.nuget.org/v3/index.json": {}
+          "https://api.nuget.org/v3/index.json": {},
+          "https://nuget.telerik.com/v3/index.json": {}
         },
         "frameworks": {
           "net8.0": {
@@ -66,6 +67,10 @@
               "suppressParent": "All",
               "target": "Package",
               "version": "[9.0.7, )"
+            },
+            "Telerik.UI.for.Blazor": {
+              "target": "Package",
+              "version": "[9.1.0, )"
             }
           },
           "imports": [

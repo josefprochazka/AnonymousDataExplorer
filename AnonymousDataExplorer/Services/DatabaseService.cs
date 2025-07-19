@@ -1,6 +1,5 @@
 ﻿using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 
 namespace AnonymousDataExplorer.Services
 {
@@ -146,6 +145,28 @@ namespace AnonymousDataExplorer.Services
 			var cmd = conn.CreateCommand();
 			cmd.CommandText = $"DELETE FROM [{tableName}] WHERE [{pkColumn}] = @id";
 			cmd.Parameters.AddWithValue("@id", pkValue);
+
+			await cmd.ExecuteNonQueryAsync();
+		}
+
+		public async Task InsertRowAsync(string tableName, string pkColumn, Dictionary<string, object> data)
+		{
+			using var conn = new SqliteConnection(_connectionString);
+			await conn.OpenAsync();
+
+			// vynecháme PK sloupec – GUID se generuje v DB
+			var insertable = data.Where(kvp => kvp.Key != pkColumn);
+
+			var columns = string.Join(", ", insertable.Select(kvp => $"[{kvp.Key}]"));
+			var parameters = string.Join(", ", insertable.Select(kvp => $"@{kvp.Key}"));
+
+			var cmd = conn.CreateCommand();
+			cmd.CommandText = $"INSERT INTO [{tableName}] ({columns}) VALUES ({parameters})";
+
+			foreach (var kvp in insertable)
+			{
+				cmd.Parameters.AddWithValue($"@{kvp.Key}", kvp.Value ?? DBNull.Value);
+			}
 
 			await cmd.ExecuteNonQueryAsync();
 		}

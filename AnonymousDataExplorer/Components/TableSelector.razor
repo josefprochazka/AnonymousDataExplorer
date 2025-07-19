@@ -24,6 +24,12 @@ else
 {
     <h4>Data v tabulce @SelectedTable</h4>
 
+    <button class="btn btn-success mb-3"
+            @onclick="CreateNewItem"
+            disabled="@string.IsNullOrEmpty(SelectedTable)">
+        Přidat nový záznam
+    </button>
+
     <TelerikGrid Data="@DataRows" Pageable="true" Groupable="true" Height="500px">
         <GridColumns>
             <GridColumn Title="Akce" Width="220px">
@@ -148,19 +154,33 @@ else
 
     private async Task SaveEditAsync()
     {
-        if (SelectedTable is null || string.IsNullOrEmpty(SelectedTable) || ColumnNames.Count == 0)
+        if (SelectedTable is null || ColumnNames.Count == 0)
             return;
 
-        var keyColumn = ColumnNames.First();
+        var keyColumn = await DbService.GetPrimaryKeyColumnAsync(SelectedTable);
+        if (keyColumn is null)
+            return;
+
         foreach (var col in ColumnNames)
         {
             EditRow[col] = EditRowString[col];
         }
 
-        await DbService.UpdateRowAsync(SelectedTable, keyColumn, EditKey!, EditRow);
+        if (EditKey is null)
+        {
+            // nový záznam
+            await DbService.InsertRowAsync(SelectedTable, keyColumn, EditRow);
+        }
+        else
+        {
+            // úprava
+            await DbService.UpdateRowAsync(SelectedTable, keyColumn, EditKey, EditRow);
+        }
+
         DataRows = await DbService.GetDataRowsAsync(SelectedTable);
         EditDialogVisible = false;
     }
+
 
     private void DetailItem(Dictionary<string, object> item)
     {
@@ -188,4 +208,16 @@ else
     {
         return item.Count > 0 ? item.First().Value : null;
     }
+
+    private void CreateNewItem()
+    {
+        if (string.IsNullOrEmpty(SelectedTable))
+            return;
+
+        EditRow = new Dictionary<string, object>();
+        EditRowString = ColumnNames.ToDictionary(col => col, col => "");
+        EditKey = null; // nový záznam, nemá PK
+        EditDialogVisible = true;
+    }
+
 }

@@ -8,7 +8,7 @@ builder.Services.AddTelerikBlazor(); // telerik components
 
 builder.Services.AddSingleton(typeof(DbProvider), DbProvider.SQLite); // registering provider to EF ctor AppDbContext
 builder.Services.AddScoped<DatabaseService>(); // registering service
-builder.Services.AddDbContext<AppDbContext>(); // registering context
+builder.Services.AddDbContext<AppDbContext>(); // registering EF context for calling at beginning
 
 var app = builder.Build(); // building of app
 

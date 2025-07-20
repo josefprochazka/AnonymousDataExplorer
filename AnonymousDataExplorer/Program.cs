@@ -1,32 +1,18 @@
 using AnonymousDataExplorer.Components;
 using AnonymousDataExplorer.Services;
-using System;
 
-var builder = WebApplication.CreateBuilder(args);
+var builder = WebApplication.CreateBuilder(args); // builder for web app
 
-// Add services to the container.
-builder.Services.AddRazorComponents()
-	.AddInteractiveServerComponents();
-builder.Services.AddTelerikBlazor();
+builder.Services.AddRazorComponents().AddInteractiveServerComponents(); // razor components + server comp
+builder.Services.AddTelerikBlazor(); // telerik components
 
-builder.Services.AddSingleton(typeof(DbProvider), DbProvider.SQLite);
-builder.Services.AddScoped<DatabaseService>();
-builder.Services.AddDbContext<AppDbContext>();
+builder.Services.AddSingleton(typeof(DbProvider), DbProvider.SQLite); // registering provider to EF ctor AppDbContext
+builder.Services.AddScoped<DatabaseService>(); // registering service
+builder.Services.AddDbContext<AppDbContext>(); // registering context
 
-var app = builder.Build();
+var app = builder.Build(); // building of app
 
-// Configure the HTTP request pipeline.
-if (!app.Environment.IsDevelopment())
-{
-	app.UseExceptionHandler("/Error", createScopeForErrors: true);
-	app.UseHsts();
-}
-
-app.UseHttpsRedirection();
-app.UseStaticFiles();
 app.UseAntiforgery();
-
-app.MapRazorComponents<App>()
-	.AddInteractiveServerRenderMode();
-
+app.UseStaticFiles();
+app.MapRazorComponents<App>().AddInteractiveServerRenderMode(); // server support for components
 app.Run();

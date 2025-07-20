@@ -32,33 +32,33 @@ else
         Přidat nový záznam
     </button>
 
-    <TelerikGrid Data="@DataRows" Pageable="true" Groupable="true" Height="500px">
-        <GridColumns>
-            @foreach (var col in ColumnNames)
-            {
-                <GridColumn Field="@col" Title="@col" FieldType="typeof(object)" />
-            }
-            <GridColumn Title="Akce" Width="280px">
-                <Template Context="rowObj">
-                    <button class="btn btn-info btn-sm"
-                            @onclick="() => DetailItem((Dictionary<string, object>)rowObj)">
-                        Zobrazit Detail
-                    </button>
-                    <button class="btn btn-primary btn-sm"
-                            @onclick="() => EditItem((Dictionary<string, object>)rowObj)">
-                        Editovat
-                    </button>
-                    <button class="btn btn-danger btn-sm"
-                            @onclick="() => DeleteItem((Dictionary<string, object>)rowObj)">
-                        Smazat
-                    </button>
-                </Template>
-            </GridColumn>
-        </GridColumns>
-    </TelerikGrid>
-
-
-
+    @if (ShowGrid && !string.IsNullOrEmpty(SelectedTable) && ColumnNames.Count > 0)
+    {
+        <TelerikGrid Data="@DataRows" Pageable="true" Groupable="true" Height="500px">
+            <GridColumns>
+                @foreach (var col in ColumnNames)
+                {
+                    <GridColumn Field="@col" Title="@col" FieldType="typeof(object)" />
+                }
+                <GridColumn Title="Akce" Width="280px">
+                    <Template Context="rowObj">
+                        <button class="btn btn-info btn-sm"
+                                @onclick="() => DetailItem((Dictionary<string, object>)rowObj)">
+                            Zobrazit Detail
+                        </button>
+                        <button class="btn btn-primary btn-sm"
+                                @onclick="() => EditItem((Dictionary<string, object>)rowObj)">
+                            Editovat
+                        </button>
+                        <button class="btn btn-danger btn-sm"
+                                @onclick="() => DeleteItem((Dictionary<string, object>)rowObj)">
+                            Smazat
+                        </button>
+                    </Template>
+                </GridColumn>
+            </GridColumns>
+        </TelerikGrid>
+    }
 }
 
 @* ========== dialog for editing ========== *@
@@ -132,6 +132,8 @@ else
 
     private Dictionary<string, string> DetailRowString = new();
     private bool ReadOnlyDialogVisible = false;
+
+    private bool ShowGrid = true;
 
     #endregion Fields and Properties
 
@@ -215,9 +217,15 @@ else
         Tables = await DbService.GetTableNamesAsync();
     }
 
-    private async Task OnTableChanged(ChangeEventArgs e) // caliing on choosing in comboBox
+    private async Task OnTableChanged(ChangeEventArgs e)
     {
         SelectedTable = e.Value?.ToString();
+
+        ShowGrid = false; // hide grid
+        StateHasChanged(); // rerender
+
+        await Task.Delay(50); // pause to be sure
+
         if (!string.IsNullOrEmpty(SelectedTable))
         {
             ColumnNames = await DbService.GetColumnNamesOnlyAsync(SelectedTable);
@@ -228,6 +236,8 @@ else
             ColumnNames.Clear();
             DataRows.Clear();
         }
+
+        ShowGrid = true; // show grid
     }
 
     private object? GetPkValue(Dictionary<string, object> item)

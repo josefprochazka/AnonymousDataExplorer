@@ -5,16 +5,30 @@ namespace AnonymousDataExplorer.Services
 {
 	public class AppDbContext : DbContext
 	{
+		private readonly DbProvider _provider;
 		private readonly string _connectionString;
 
-		public AppDbContext(IConfiguration configuration)
+		public AppDbContext(IConfiguration config)
 		{
-			_connectionString = configuration.GetConnectionString("DefaultConnection");
+			_provider = DbProvider.SQLite;
+			//OnConfiguring(new DbContextOptionsBuilder());
+			_connectionString = config.GetConnectionString("DefaultConnection");
 		}
 
 		protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
 		{
-			optionsBuilder.UseSqlite(_connectionString);
+			switch (_provider)
+			{
+				case DbProvider.SQLite:
+					optionsBuilder.UseSqlite(_connectionString);
+					break;
+				case DbProvider.MSSQL:
+					throw new NotImplementedException("MSSQL provider not implemented yet");
+				case DbProvider.MariaDB:
+					throw new NotImplementedException("MariaDB provider not implemented yet");
+				default:
+					throw new NotSupportedException();
+			}
 		}
 	}
 
@@ -154,7 +168,6 @@ namespace AnonymousDataExplorer.Services
 			using var conn = new SqliteConnection(_connectionString);
 			await conn.OpenAsync();
 
-			// vynecháme PK sloupec – GUID se generuje v DB
 			var insertable = data.Where(kvp => kvp.Key != pkColumn);
 
 			var columns = string.Join(", ", insertable.Select(kvp => $"[{kvp.Key}]"));

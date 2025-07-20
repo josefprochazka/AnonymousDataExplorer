@@ -1,12 +1,37 @@
 {
   "Version": 1,
   "WorkspaceRootPath": "C:\\Users\\josef.prochazka\\source\\repos\\AnonymousDataExplorer\\",
-  "Documents": [],
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{01A83E28-7B0F-4052-8DAF-2C72D50D5B82}|AnonymousDataExplorer\\AnonymousDataExplorer.csproj|c:\\users\\josef.prochazka\\source\\repos\\anonymousdataexplorer\\anonymousdataexplorer\\components\\tableselector.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}",
+      "RelativeMoniker": "D:0:0:{01A83E28-7B0F-4052-8DAF-2C72D50D5B82}|AnonymousDataExplorer\\AnonymousDataExplorer.csproj|solutionrelative:anonymousdataexplorer\\components\\tableselector.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}"
+    }
+  ],
   "DocumentGroupContainers": [
     {
       "Orientation": 0,
       "VerticalTabListWidth": 256,
-      "DocumentGroups": []
+      "DocumentGroups": [
+        {
+          "DockedWidth": 200,
+          "SelectedChildIndex": 0,
+          "Children": [
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "TableSelector.razor",
+              "DocumentMoniker": "C:\\Users\\josef.prochazka\\source\\repos\\AnonymousDataExplorer\\AnonymousDataExplorer\\Components\\TableSelector.razor",
+              "RelativeDocumentMoniker": "AnonymousDataExplorer\\Components\\TableSelector.razor",
+              "ToolTip": "C:\\Users\\josef.prochazka\\source\\repos\\AnonymousDataExplorer\\AnonymousDataExplorer\\Components\\TableSelector.razor",
+              "RelativeToolTip": "AnonymousDataExplorer\\Components\\TableSelector.razor",
+              "ViewState": "AgIAABkAAAAAAAAAAAAAADoAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
+              "WhenOpened": "2025-07-20T19:53:33.198Z",
+              "EditorCaption": ""
+            }
+          ]
+        }
+      ]
     }
   ]
 }

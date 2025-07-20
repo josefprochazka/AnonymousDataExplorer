@@ -1,5 +1,6 @@
 ﻿using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using System.Data.Common;
 
 namespace AnonymousDataExplorer.Services
 {
@@ -8,10 +9,9 @@ namespace AnonymousDataExplorer.Services
 		private readonly DbProvider _provider;
 		private readonly string _connectionString;
 
-		public AppDbContext(IConfiguration config)
+		public AppDbContext(DbProvider provider, IConfiguration config)
 		{
-			_provider = DbProvider.SQLite;
-			//OnConfiguring(new DbContextOptionsBuilder());
+			_provider = provider;
 			_connectionString = config.GetConnectionString("DefaultConnection");
 		}
 
@@ -35,24 +35,26 @@ namespace AnonymousDataExplorer.Services
 	public class DatabaseService
 	{
 		private readonly AppDbContext _context;
-		private readonly string _connectionString;
+		private readonly DbProvider _provider;
+		private readonly DbConnection _connection;
 
-		public DatabaseService(AppDbContext context, IConfiguration configuration)
+		public DatabaseService(AppDbContext context, DbProvider provider)
 		{
 			_context = context;
-			_connectionString = configuration.GetConnectionString("DefaultConnection");
+			_provider = provider;
+			_connection = _context.Database.GetDbConnection();
 		}
 
 		public async Task<List<string>> GetTableNamesAsync()
 		{
+			if (_provider != DbProvider.SQLite)
+				throw new NotImplementedException();
+
 			var result = new List<string>();
 
-			using var connection = new SqliteConnection(_connectionString);
-			await connection.OpenAsync();
-
-			var command = new SqliteCommand(
-				"SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';",
-				connection);
+			await _connection.OpenAsync();
+			using var command = _connection.CreateCommand();
+			command.CommandText = "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';";
 
 			using var reader = await command.ExecuteReaderAsync();
 			while (await reader.ReadAsync())
@@ -60,17 +62,16 @@ namespace AnonymousDataExplorer.Services
 				result.Add(reader.GetString(0));
 			}
 
+			await _connection.CloseAsync();
 			return result;
 		}
 
 		public async Task<List<Dictionary<string, object>>> GetDataRowsAsync(string tableName)
 		{
 			var rows = new List<Dictionary<string, object>>();
+			await _connection.OpenAsync();
 
-			using var connection = new SqliteConnection(_connectionString);
-			await connection.OpenAsync();
-
-			var command = connection.CreateCommand();
+			using var command = _connection.CreateCommand();
 			command.CommandText = $"SELECT * FROM [{tableName}]";
 
 			using var reader = await command.ExecuteReaderAsync();
@@ -84,17 +85,16 @@ namespace AnonymousDataExplorer.Services
 				rows.Add(row);
 			}
 
+			await _connection.CloseAsync();
 			return rows;
 		}
 
 		public async Task<List<string>> GetColumnNamesOnlyAsync(string tableName)
 		{
 			var result = new List<string>();
+			await _connection.OpenAsync();
 
-			using var conn = new SqliteConnection(_connectionString);
-			await conn.OpenAsync();
-
-			using var cmd = conn.CreateCommand();
+			using var cmd = _connection.CreateCommand();
 			cmd.CommandText = $"PRAGMA table_info({tableName});";
 
 			using var reader = await cmd.ExecuteReaderAsync();
@@ -105,13 +105,13 @@ namespace AnonymousDataExplorer.Services
 					result.Add(name);
 			}
 
+			await _connection.CloseAsync();
 			return result;
 		}
 
 		public async Task UpdateRowAsync(string tableName, string keyColumn, object keyValue, Dictionary<string, object> data)
 		{
-			using var connection = new SqliteConnection(_connectionString);
-			await connection.OpenAsync();
+			await _connection.OpenAsync();
 
 			var setParts = data
 				.Where(kvp => kvp.Key != keyColumn)
@@ -119,70 +119,83 @@ namespace AnonymousDataExplorer.Services
 
 			var setClause = string.Join(", ", setParts);
 
-			var command = connection.CreateCommand();
+			using var command = _connection.CreateCommand();
 			command.CommandText = $"UPDATE [{tableName}] SET {setClause} WHERE {keyColumn} = @keyValue";
 
 			foreach (var kvp in data.Where(kvp => kvp.Key != keyColumn))
 			{
-				command.Parameters.AddWithValue($"@{kvp.Key}", kvp.Value ?? DBNull.Value);
+				var param = command.CreateParameter();
+				param.ParameterName = $"@{kvp.Key}";
+				param.Value = kvp.Value ?? DBNull.Value;
+				command.Parameters.Add(param);
 			}
 
-			command.Parameters.AddWithValue("@keyValue", keyValue);
+			var keyParam = command.CreateParameter();
+			keyParam.ParameterName = "@keyValue";
+			keyParam.Value = keyValue;
+			command.Parameters.Add(keyParam);
 
 			await command.ExecuteNonQueryAsync();
+			await _connection.CloseAsync();
 		}
 
 		public async Task<string?> GetPrimaryKeyColumnAsync(string tableName)
 		{
-			using var conn = new SqliteConnection(_connectionString);
-			await conn.OpenAsync();
-
-			var cmd = conn.CreateCommand();
+			await _connection.OpenAsync();
+			using var cmd = _connection.CreateCommand();
 			cmd.CommandText = $"PRAGMA table_info({tableName});";
 
 			using var reader = await cmd.ExecuteReaderAsync();
 			while (await reader.ReadAsync())
 			{
-				var isPk = reader.GetInt32(reader.GetOrdinal("pk"));
+				var isPk = Convert.ToInt32(reader["pk"]);
 				if (isPk == 1)
-					return reader.GetString(reader.GetOrdinal("name")); // název PK sloupce
+					return reader["name"].ToString();
 			}
 
+			await _connection.CloseAsync();
 			return null;
 		}
 
 		public async Task DeleteRowAsync(string tableName, string pkColumn, object pkValue)
 		{
-			using var conn = new SqliteConnection(_connectionString);
-			await conn.OpenAsync();
+			await _connection.OpenAsync();
 
-			var cmd = conn.CreateCommand();
+			using var cmd = _connection.CreateCommand();
 			cmd.CommandText = $"DELETE FROM [{tableName}] WHERE [{pkColumn}] = @id";
-			cmd.Parameters.AddWithValue("@id", pkValue);
+
+			var idParam = cmd.CreateParameter();
+			idParam.ParameterName = "@id";
+			idParam.Value = pkValue;
+			cmd.Parameters.Add(idParam);
 
 			await cmd.ExecuteNonQueryAsync();
+			await _connection.CloseAsync();
 		}
 
 		public async Task InsertRowAsync(string tableName, string pkColumn, Dictionary<string, object> data)
 		{
-			using var conn = new SqliteConnection(_connectionString);
-			await conn.OpenAsync();
+			await _connection.OpenAsync();
 
 			var insertable = data.Where(kvp => kvp.Key != pkColumn);
 
 			var columns = string.Join(", ", insertable.Select(kvp => $"[{kvp.Key}]"));
 			var parameters = string.Join(", ", insertable.Select(kvp => $"@{kvp.Key}"));
 
-			var cmd = conn.CreateCommand();
+			using var cmd = _connection.CreateCommand();
 			cmd.CommandText = $"INSERT INTO [{tableName}] ({columns}) VALUES ({parameters})";
 
 			foreach (var kvp in insertable)
 			{
-				cmd.Parameters.AddWithValue($"@{kvp.Key}", kvp.Value ?? DBNull.Value);
+				var param = cmd.CreateParameter();
+				param.ParameterName = $"@{kvp.Key}";
+				param.Value = kvp.Value ?? DBNull.Value;
+				cmd.Parameters.Add(param);
 			}
 
 			await cmd.ExecuteNonQueryAsync();
+			await _connection.CloseAsync();
 		}
-
 	}
+
 }

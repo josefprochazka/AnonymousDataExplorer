@@ -9,6 +9,7 @@ builder.Services.AddRazorComponents()
 	.AddInteractiveServerComponents();
 builder.Services.AddTelerikBlazor();
 
+builder.Services.AddSingleton(typeof(DbProvider), DbProvider.SQLite);
 builder.Services.AddScoped<DatabaseService>();
 builder.Services.AddDbContext<AppDbContext>();
 

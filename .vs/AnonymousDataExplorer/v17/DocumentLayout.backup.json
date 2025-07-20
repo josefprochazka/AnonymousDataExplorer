@@ -3,12 +3,12 @@
   "WorkspaceRootPath": "C:\\Users\\josef.prochazka\\source\\repos\\AnonymousDataExplorer\\",
   "Documents": [
     {
-      "AbsoluteMoniker": "D:0:0:{01A83E28-7B0F-4052-8DAF-2C72D50D5B82}|AnonymousDataExplorer\\AnonymousDataExplorer.csproj|c:\\users\\josef.prochazka\\source\\repos\\anonymousdataexplorer\\anonymousdataexplorer\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{01A83E28-7B0F-4052-8DAF-2C72D50D5B82}|AnonymousDataExplorer\\AnonymousDataExplorer.csproj|solutionrelative:anonymousdataexplorer\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+      "AbsoluteMoniker": "D:0:0:{01A83E28-7B0F-4052-8DAF-2C72D50D5B82}|AnonymousDataExplorer\\AnonymousDataExplorer.csproj|c:\\users\\josef.prochazka\\source\\repos\\anonymousdataexplorer\\anonymousdataexplorer\\components\\tableselector.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}",
+      "RelativeMoniker": "D:0:0:{01A83E28-7B0F-4052-8DAF-2C72D50D5B82}|AnonymousDataExplorer\\AnonymousDataExplorer.csproj|solutionrelative:anonymousdataexplorer\\components\\tableselector.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{01A83E28-7B0F-4052-8DAF-2C72D50D5B82}|AnonymousDataExplorer\\AnonymousDataExplorer.csproj|c:\\users\\josef.prochazka\\source\\repos\\anonymousdataexplorer\\anonymousdataexplorer\\services\\databaseservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{01A83E28-7B0F-4052-8DAF-2C72D50D5B82}|AnonymousDataExplorer\\AnonymousDataExplorer.csproj|solutionrelative:anonymousdataexplorer\\services\\databaseservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+      "AbsoluteMoniker": "D:0:0:{01A83E28-7B0F-4052-8DAF-2C72D50D5B82}|AnonymousDataExplorer\\AnonymousDataExplorer.csproj|c:\\users\\josef.prochazka\\source\\repos\\anonymousdataexplorer\\anonymousdataexplorer\\components\\pages\\home.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}",
+      "RelativeMoniker": "D:0:0:{01A83E28-7B0F-4052-8DAF-2C72D50D5B82}|AnonymousDataExplorer\\AnonymousDataExplorer.csproj|solutionrelative:anonymousdataexplorer\\components\\pages\\home.razor||{40D31677-CBC0-4297-A9EF-89D907823A98}"
     }
   ],
   "DocumentGroupContainers": [
@@ -18,34 +18,33 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 1,
+          "SelectedChildIndex": 0,
           "Children": [
             {
               "$type": "Document",
-              "DocumentIndex": 1,
-              "Title": "DatabaseService.cs",
-              "DocumentMoniker": "C:\\Users\\josef.prochazka\\source\\repos\\AnonymousDataExplorer\\AnonymousDataExplorer\\Services\\DatabaseService.cs",
-              "RelativeDocumentMoniker": "AnonymousDataExplorer\\Services\\DatabaseService.cs",
-              "ToolTip": "C:\\Users\\josef.prochazka\\source\\repos\\AnonymousDataExplorer\\AnonymousDataExplorer\\Services\\DatabaseService.cs",
-              "RelativeToolTip": "AnonymousDataExplorer\\Services\\DatabaseService.cs",
-              "ViewState": "AgIAAA0AAAAAAAAAAAAgwC4AAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-07-19T13:04:24.013Z",
+              "DocumentIndex": 0,
+              "Title": "TableSelector.razor",
+              "DocumentMoniker": "C:\\Users\\josef.prochazka\\source\\repos\\AnonymousDataExplorer\\AnonymousDataExplorer\\Components\\TableSelector.razor",
+              "RelativeDocumentMoniker": "AnonymousDataExplorer\\Components\\TableSelector.razor",
+              "ToolTip": "C:\\Users\\josef.prochazka\\source\\repos\\AnonymousDataExplorer\\AnonymousDataExplorer\\Components\\TableSelector.razor",
+              "RelativeToolTip": "AnonymousDataExplorer\\Components\\TableSelector.razor",
+              "ViewState": "AgIAALoAAAAAAAAAAAAvwLwAAAAEAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
+              "WhenOpened": "2025-07-20T15:56:22.175Z",
               "IsPinned": true,
               "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 0,
-              "Title": "Program.cs",
-              "DocumentMoniker": "C:\\Users\\josef.prochazka\\source\\repos\\AnonymousDataExplorer\\AnonymousDataExplorer\\Program.cs",
-              "RelativeDocumentMoniker": "AnonymousDataExplorer\\Program.cs",
-              "ToolTip": "C:\\Users\\josef.prochazka\\source\\repos\\AnonymousDataExplorer\\AnonymousDataExplorer\\Program.cs*",
-              "RelativeToolTip": "AnonymousDataExplorer\\Program.cs*",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAkAAAACAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-07-20T15:19:18.122Z",
-              "IsPinned": true,
+              "DocumentIndex": 1,
+              "Title": "Home.razor",
+              "DocumentMoniker": "C:\\Users\\josef.prochazka\\source\\repos\\AnonymousDataExplorer\\AnonymousDataExplorer\\Components\\Pages\\Home.razor",
+              "RelativeDocumentMoniker": "AnonymousDataExplorer\\Components\\Pages\\Home.razor",
+              "ToolTip": "C:\\Users\\josef.prochazka\\source\\repos\\AnonymousDataExplorer\\AnonymousDataExplorer\\Components\\Pages\\Home.razor",
+              "RelativeToolTip": "AnonymousDataExplorer\\Components\\Pages\\Home.razor",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000759|",
+              "WhenOpened": "2025-07-20T16:26:15.607Z",
               "EditorCaption": ""
             }
           ]

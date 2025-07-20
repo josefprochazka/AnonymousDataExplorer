@@ -5,6 +5,7 @@
 
 <h4>Výběr tabulky</h4>
 
+@* ========== comboBox ========== *@
 @if (Tables.Count == 0)
 {
     <p style="color:red">Žádné tabulky nenalezeny</p>
@@ -20,6 +21,7 @@ else
     </select>
 }
 
+@* ========== grid + button New ========== *@
 @if (!string.IsNullOrEmpty(SelectedTable) && ColumnNames.Count > 0)
 {
     <h4>Data v tabulce @SelectedTable</h4>
@@ -32,15 +34,15 @@ else
 
     <TelerikGrid Data="@DataRows" Pageable="true" Groupable="true" Height="500px">
         <GridColumns>
-            <GridColumn Title="Akce" Width="220px">
+            <GridColumn Title="Akce" Width="280px">
                 <Template Context="rowObj">
+                    <button class="btn btn-info btn-sm"
+                            @onclick="() => DetailItem((Dictionary<string, object>)rowObj)">
+                        Zobrazit Detail
+                    </button>
                     <button class="btn btn-primary btn-sm"
                             @onclick="() => EditItem((Dictionary<string, object>)rowObj)">
                         Editovat
-                    </button>
-                    <button class="btn btn-info btn-sm"
-                            @onclick="() => DetailItem((Dictionary<string, object>)rowObj)">
-                        Detail
                     </button>
                     <button class="btn btn-danger btn-sm"
                             @onclick="() => DeleteItem((Dictionary<string, object>)rowObj)">
@@ -56,6 +58,7 @@ else
     </TelerikGrid>
 }
 
+@* ========== dialog for editing ========== *@
 @if (EditDialogVisible)
 {
     <div class="modal show d-block" style="background-color: rgba(0,0,0,0.5);">
@@ -83,14 +86,15 @@ else
     </div>
 }
 
-@if (DetailDialogVisible)
+@* ========== dialog for readonly ========== *@
+@if (ReadOnlyDialogVisible)
 {
     <div class="modal show d-block" style="background-color: rgba(0,0,0,0.5);">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title">Detail záznamu</h5>
-                    <button type="button" class="btn-close" @onclick="() => DetailDialogVisible = false"></button>
+                    <button type="button" class="btn-close" @onclick="() => ReadOnlyDialogVisible = false"></button>
                 </div>
                 <div class="modal-body">
                     @foreach (var col in ColumnNames)
@@ -102,7 +106,7 @@ else
                     }
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-secondary" @onclick="() => DetailDialogVisible = false">Zavřít</button>
+                    <button class="btn btn-secondary" @onclick="() => ReadOnlyDialogVisible = false">Zavřít</button>
                 </div>
             </div>
         </div>
@@ -111,37 +115,40 @@ else
 
 
 @code {
+    #region Fields and Properties
+
     private List<string> Tables = new();
     private string? SelectedTable;
     private List<string> ColumnNames = new();
     private List<Dictionary<string, object>> DataRows = new();
 
-    private Dictionary<string, object> EditRow = new();   // originál řádek
-    private Dictionary<string, string> EditRowString = new(); // stringView pro editaci
-    private object? EditKey;
+    private Dictionary<string, object> EditRow = new();
+    private Dictionary<string, string> EditRowString = new();
+    private object? EditKey; // primary key for saving etc.
     private bool EditDialogVisible = false;
 
     private Dictionary<string, string> DetailRowString = new();
-    private bool DetailDialogVisible = false;
+    private bool ReadOnlyDialogVisible = false;
 
-    protected override async Task OnInitializedAsync()
+    #endregion Fields and Properties
+
+    #region Create, Show, Edit, Delete methods
+
+    private void CreateNewItem()
     {
-        Tables = await DbService.GetTableNamesAsync();
+        if (string.IsNullOrEmpty(SelectedTable))
+            return;
+
+        EditRow = new Dictionary<string, object>();
+        EditRowString = ColumnNames.ToDictionary(col => col, col => "");
+        EditKey = null; // new record without existing PK
+        EditDialogVisible = true;
     }
 
-    private async Task OnTableChanged(ChangeEventArgs e)
+    private void DetailItem(Dictionary<string, object> item)
     {
-        SelectedTable = e.Value?.ToString();
-        if (!string.IsNullOrEmpty(SelectedTable))
-        {
-            ColumnNames = await DbService.GetColumnNamesOnlyAsync(SelectedTable);
-            DataRows = await DbService.GetDataRowsAsync(SelectedTable);
-        }
-        else
-        {
-            ColumnNames.Clear();
-            DataRows.Clear();
-        }
+        DetailRowString = item.ToDictionary(x => x.Key, x => x.Value?.ToString() ?? "");
+        ReadOnlyDialogVisible = true;
     }
 
     private void EditItem(Dictionary<string, object> item)
@@ -181,14 +188,6 @@ else
         EditDialogVisible = false;
     }
 
-
-    private void DetailItem(Dictionary<string, object> item)
-    {
-        DetailRowString = item.ToDictionary(x => x.Key, x => x.Value?.ToString() ?? "");
-        DetailDialogVisible = true;
-    }
-
-
     private async void DeleteItem(Dictionary<string, object> item)
     {
         if (SelectedTable is null)
@@ -204,20 +203,35 @@ else
         DataRows = await DbService.GetDataRowsAsync(SelectedTable);
     }
 
+    #endregion Create, Show, Edit, Delete
+
+    #region Other methods
+
+    protected override async Task OnInitializedAsync() // calling on init
+    {
+        Tables = await DbService.GetTableNamesAsync();
+    }
+
+    private async Task OnTableChanged(ChangeEventArgs e) // caliing on choosing in comboBox
+    {
+        SelectedTable = e.Value?.ToString();
+        if (!string.IsNullOrEmpty(SelectedTable))
+        {
+            ColumnNames = await DbService.GetColumnNamesOnlyAsync(SelectedTable);
+            DataRows = await DbService.GetDataRowsAsync(SelectedTable);
+        }
+        else
+        {
+            ColumnNames.Clear();
+            DataRows.Clear();
+        }
+    }
+
     private object? GetPkValue(Dictionary<string, object> item)
     {
-        return item.Count > 0 ? item.First().Value : null;
+        return item.Count > 0 ? item.First().Value : null; // PK is loaded first
     }
 
-    private void CreateNewItem()
-    {
-        if (string.IsNullOrEmpty(SelectedTable))
-            return;
-
-        EditRow = new Dictionary<string, object>();
-        EditRowString = ColumnNames.ToDictionary(col => col, col => "");
-        EditKey = null; // nový záznam, nemá PK
-        EditDialogVisible = true;
-    }
+    #endregion Other methods
 
 }

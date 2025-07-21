@@ -222,3 +222,6 @@ C:\Users\josef.prochazka\source\repos\AnonymousDataExplorer\AnonymousDataExplore
 C:\Users\josef.prochazka\source\repos\AnonymousDataExplorer\AnonymousDataExplorer\obj\Debug\net8.0\AnonymousDataExplorer.pdb
 C:\Users\josef.prochazka\source\repos\AnonymousDataExplorer\AnonymousDataExplorer\obj\Debug\net8.0\AnonymousDataExplorer.genruntimeconfig.cache
 C:\Users\josef.prochazka\source\repos\AnonymousDataExplorer\AnonymousDataExplorer\obj\Debug\net8.0\ref\AnonymousDataExplorer.dll
+C:\Users\josef.prochazka\source\repos\AnonymousDataExplorer\AnonymousDataExplorer\bin\Debug\net8.0\Microsoft.EntityFrameworkCore.SqlServer.dll
+C:\Users\josef.prochazka\source\repos\AnonymousDataExplorer\AnonymousDataExplorer\bin\Debug\net8.0\MySqlConnector.dll
+C:\Users\josef.prochazka\source\repos\AnonymousDataExplorer\AnonymousDataExplorer\bin\Debug\net8.0\Pomelo.EntityFrameworkCore.MySql.dll

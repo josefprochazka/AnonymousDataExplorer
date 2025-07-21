@@ -11,7 +11,13 @@ namespace AnonymousDataExplorer.Services
 		public AppDbContext(DbProvider provider, IConfiguration config)
 		{
 			_provider = provider;
-			_connectionString = config.GetConnectionString("DefaultConnection"); // defautlConn from json
+			_connectionString = provider switch
+			{
+				DbProvider.SQLite => config.GetConnectionString("SqliteConnection"),
+				DbProvider.MSSQL => config.GetConnectionString("MssqlConnection"),
+				DbProvider.MariaDB => config.GetConnectionString("MariadbConnection"),
+				_ => throw new NotSupportedException()
+			}; // default connectionString from json
 		}
 
 		protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder) // calling in DbContext ctor
@@ -22,9 +28,11 @@ namespace AnonymousDataExplorer.Services
 					optionsBuilder.UseSqlite(_connectionString);
 					break;
 				case DbProvider.MSSQL:
-					throw new NotImplementedException("MSSQL provider not implemented yet");
+					optionsBuilder.UseSqlServer(_connectionString);
+					break;
 				case DbProvider.MariaDB:
-					throw new NotImplementedException("MariaDB provider not implemented yet");
+					optionsBuilder.UseMySql(_connectionString, ServerVersion.AutoDetect(_connectionString));
+					break;
 				default:
 					throw new NotSupportedException();
 			}
@@ -46,15 +54,20 @@ namespace AnonymousDataExplorer.Services
 
 		public async Task<List<string>> GetTableNamesAsync() // names of tables in DB for comboBox f.e.
 		{
-			if (_provider != DbProvider.SQLite)
-				throw new NotImplementedException();
-
 			var result = new List<string>();
 
 			await _connection.OpenAsync();
 			using var command = _connection.CreateCommand();
-			command.CommandText = "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';";
 
+			if (_provider == DbProvider.SQLite)
+				command.CommandText = "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';";
+			else if (_provider == DbProvider.MSSQL)
+				command.CommandText = "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE';";
+			else if (_provider == DbProvider.MariaDB)
+				command.CommandText = "SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE();";
+			else
+				throw new NotSupportedException();
+			
 			using var reader = await command.ExecuteReaderAsync();
 			while (await reader.ReadAsync())
 			{

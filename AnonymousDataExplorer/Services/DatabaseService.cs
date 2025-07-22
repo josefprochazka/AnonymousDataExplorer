@@ -153,6 +153,43 @@ namespace AnonymousDataExplorer.Services
 			};
 		}
 
+		public async Task<Dictionary<string, object>> GetRowByIdAsync(string tableName, string pkColumn, object id)
+		{
+			if (_connection.State != ConnectionState.Open)
+				await _connection.OpenAsync();
+
+			using var command = _connection.CreateCommand();
+
+			if (_provider == DbProvider.SQLite)
+				command.CommandText = $"SELECT * FROM \"{tableName}\" WHERE \"{pkColumn}\" = @id";
+			else if (_provider == DbProvider.MSSQL)
+				command.CommandText = $"SELECT * FROM [{tableName}] WHERE [{pkColumn}] = @id";
+			else if (_provider == DbProvider.MariaDB)
+				command.CommandText = $"SELECT * FROM `{tableName}` WHERE `{pkColumn}` = @id";
+			else
+				throw new NotSupportedException();
+
+			var param = command.CreateParameter();
+			param.ParameterName = "@id";
+			param.Value = id;
+			command.Parameters.Add(param);
+
+			using var reader = await command.ExecuteReaderAsync();
+
+			Dictionary<string, object> row = null;
+			if (await reader.ReadAsync())
+			{
+				row = new Dictionary<string, object>();
+				for (int i = 0; i < reader.FieldCount; i++)
+				{
+					row[reader.GetName(i)] = reader.GetValue(i);
+				}
+			}
+
+			await _connection.CloseAsync();
+			return row;
+		}
+
 
 		#region CRUD methods
 
@@ -219,7 +256,7 @@ namespace AnonymousDataExplorer.Services
 			await _connection.CloseAsync();
 		}
 
-		public async Task InsertRowAsync(string tableName, string pkColumn, Dictionary<string, object> data)
+		public async Task<object?> InsertRowAsync(string tableName, string pkColumn, Dictionary<string, object> data)
 		{
 			if (_connection.State != ConnectionState.Open)
 				await _connection.OpenAsync();
@@ -230,7 +267,7 @@ namespace AnonymousDataExplorer.Services
 			var parameters = string.Join(", ", insertable.Select(kvp => $"@{kvp.Key}"));
 
 			using var cmd = _connection.CreateCommand();
-			cmd.CommandText = $"INSERT INTO {Quote(tableName)} ({columns}) VALUES ({parameters})";
+			cmd.CommandText = $"{GetInsertQuery(tableName, columns, parameters)}";
 
 			foreach (var kvp in insertable)
 			{
@@ -239,7 +276,6 @@ namespace AnonymousDataExplorer.Services
 
 				object value = kvp.Value;
 
-				// obecné ošetření na DBNull
 				if (value is string s && string.IsNullOrWhiteSpace(s))
 					value = DBNull.Value;
 				else if (value is DateTime dt && dt == default)
@@ -247,21 +283,31 @@ namespace AnonymousDataExplorer.Services
 				else if (value == null)
 					value = DBNull.Value;
 
-				// konkrétní sloupce: fallback default hodnoty
-				//if (value == DBNull.Value && kvp.Key.Equals("PurchasePrice", StringComparison.OrdinalIgnoreCase))
-				//	value = 0;
-				//if (value == DBNull.Value && kvp.Key.Equals("LastName", StringComparison.OrdinalIgnoreCase))
-				//	value = "Unknown";
 				if (value == DBNull.Value && kvp.Key.Equals("Birthday", StringComparison.OrdinalIgnoreCase))
-					value = new DateTime(2000, 1, 1); // nebo co chceš
+					value = new DateTime(2000, 1, 1);
 
 				param.Value = value;
 				cmd.Parameters.Add(param);
 			}
 
-			await cmd.ExecuteNonQueryAsync();
+			object? newId = await cmd.ExecuteScalarAsync();
 			await _connection.CloseAsync();
+
+			return newId;
 		}
+
+		private string GetInsertQuery(string tableName, string columns, string parameters)
+		{
+			var quotedTable = Quote(tableName);
+			return _provider switch
+			{
+				DbProvider.SQLite => $"INSERT INTO {quotedTable} ({columns}) VALUES ({parameters}); SELECT last_insert_rowid();",
+				DbProvider.MSSQL => $"INSERT INTO {quotedTable} ({columns}) OUTPUT INSERTED.{Quote("ID")} VALUES ({parameters});",
+				DbProvider.MariaDB => $"INSERT INTO {quotedTable} ({columns}) VALUES ({parameters}); SELECT LAST_INSERT_ID();",
+				_ => throw new NotSupportedException("Unsupported DB type")
+			};
+		}
+
 
 		public async Task DeleteRowAsync(string tableName, string pkColumn, object pkValue) // deleting row in table
 		{

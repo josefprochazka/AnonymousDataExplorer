@@ -180,16 +180,33 @@ else
 
         if (EditKey is null)
         {
-            // nový záznam
-            await DbService.InsertRowAsync(SelectedTable, keyColumn, EditRow);
+            var insertedId = await DbService.InsertRowAsync(SelectedTable, keyColumn, EditRow);
+            var newRow = await DbService.GetRowByIdAsync(SelectedTable, keyColumn, insertedId);
+            //DataRows.Add(newRow);
+
+            var list = DataRows.ToList(); // kopie
+            list.Add(newRow);             // nebo list[index] = updatedRow
+            DataRows = list;              // přiřazení spustí rerender
         }
         else
         {
-            // úprava
             await DbService.UpdateRowAsync(SelectedTable, keyColumn, EditKey, EditRow);
+            var updatedRow = await DbService.GetRowByIdAsync(SelectedTable, keyColumn, EditKey);
+            var index = DataRows.FindIndex(row => row[keyColumn]?.ToString() == EditKey.ToString());
+            // if (index >= 0)
+            //     DataRows[index] = updatedRow;
+
+            var list = DataRows.ToList(); // kopie
+
+            if (index >= 0)
+                list[index] = updatedRow;
+
+            DataRows = list;              // přiřazení spustí rerender
         }
 
-        DataRows = await DbService.GetDataRowsAsync(SelectedTable);
+        
+
+
         EditDialogVisible = false;
     }
 

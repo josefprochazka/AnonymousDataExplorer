@@ -13,9 +13,9 @@ namespace AnonymousDataExplorer.Services
 			_provider = provider;
 			_connectionString = provider switch
 			{
-				DbProvider.SQLite => config.GetConnectionString("SqliteConnection"),
-				DbProvider.MSSQL => config.GetConnectionString("MssqlConnection"),
-				DbProvider.MariaDB => config.GetConnectionString("MariadbConnection"),
+				DbProvider.SQLite => config.GetConnectionString("SqliteConnection")!,
+				DbProvider.MSSQL => config.GetConnectionString("MssqlConnection")!,
+				DbProvider.MariaDB => config.GetConnectionString("MariadbConnection")!,
 				_ => throw new NotSupportedException()
 			}; // default connectionString from json
 		}
@@ -24,9 +24,9 @@ namespace AnonymousDataExplorer.Services
 		{
 			switch (_provider)
 			{
-				//case DbProvider.SQLite:
-				//	optionsBuilder.UseSqlite(_connectionString);
-				//	break;
+				case DbProvider.SQLite:
+					optionsBuilder.UseSqlite(_connectionString);
+					break;
 				case DbProvider.MSSQL:
 					optionsBuilder.UseSqlServer(_connectionString);
 					break;

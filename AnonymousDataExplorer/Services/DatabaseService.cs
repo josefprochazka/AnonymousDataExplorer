@@ -24,9 +24,9 @@ namespace AnonymousDataExplorer.Services
 		{
 			switch (_provider)
 			{
-				case DbProvider.SQLite:
-					optionsBuilder.UseSqlite(_connectionString);
-					break;
+				//case DbProvider.SQLite:
+				//	optionsBuilder.UseSqlite(_connectionString);
+				//	break;
 				case DbProvider.MSSQL:
 					optionsBuilder.UseSqlServer(_connectionString);
 					break;

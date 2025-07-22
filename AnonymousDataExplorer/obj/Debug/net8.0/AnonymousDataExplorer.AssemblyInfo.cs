@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("AnonymousDataExplorer")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+6fb15402c7a41e3b1693423119bb38e6221059bb")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+7635f09810bb4c9d226fe4cee5da3418af717310")]
 [assembly: System.Reflection.AssemblyProductAttribute("AnonymousDataExplorer")]
 [assembly: System.Reflection.AssemblyTitleAttribute("AnonymousDataExplorer")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

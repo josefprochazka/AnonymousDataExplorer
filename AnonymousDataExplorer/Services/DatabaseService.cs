@@ -1,6 +1,7 @@
 ﻿using Microsoft.Data.SqlClient;
 using Microsoft.Data.Sqlite;
 using MySqlConnector;
+using System.Data;
 using System.Data.Common;
 
 namespace AnonymousDataExplorer.Services
@@ -34,7 +35,8 @@ namespace AnonymousDataExplorer.Services
 		{
 			var result = new List<string>();
 
-			await _connection.OpenAsync();
+			if (_connection.State != ConnectionState.Open)
+				await _connection.OpenAsync();
 			using var command = _connection.CreateCommand();
 
 			if (_provider == DbProvider.SQLite)
@@ -59,7 +61,8 @@ namespace AnonymousDataExplorer.Services
 		public async Task<List<string>> GetColumnNamesOnlyAsync(string tableName) // names of columns in table - for creating columns and fields
 		{
 			var result = new List<string>();
-			await _connection.OpenAsync();
+			if (_connection.State != ConnectionState.Open)
+				await _connection.OpenAsync();
 
 			using var cmd = _connection.CreateCommand();
 
@@ -93,46 +96,80 @@ namespace AnonymousDataExplorer.Services
 
 		public async Task<string?> GetPrimaryKeyColumnAsync(string tableName) // returns name of column that is marked as PK
 		{
-			await _connection.OpenAsync();
+			if (_connection.State != ConnectionState.Open)
+				await _connection.OpenAsync();
 			using var cmd = _connection.CreateCommand();
-			
-			cmd.CommandText = $"PRAGMA table_info({tableName});"; // query for metadata of table - table describing (columns etc.)
 
-			using var reader = await cmd.ExecuteReaderAsync();
-			while (await reader.ReadAsync()) // finding "PK" column
+			if (_provider == DbProvider.SQLite)
 			{
-				var isPk = Convert.ToInt32(reader["pk"]);
-				if (isPk == 1)
-					return reader["name"].ToString(); // name of PK column
+				cmd.CommandText = $"PRAGMA table_info({Quote(tableName)});";
+				using var reader = await cmd.ExecuteReaderAsync();
+				while (await reader.ReadAsync())
+				{
+					var isPk = Convert.ToInt32(reader["pk"]);
+					if (isPk == 1)
+						return reader["name"].ToString();
+				}
 			}
+			else if (_provider == DbProvider.MSSQL)
+			{
+				cmd.CommandText = $@"
+			SELECT COLUMN_NAME
+			FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE
+			WHERE OBJECTPROPERTY(OBJECT_ID(CONSTRAINT_SCHEMA + '.' + CONSTRAINT_NAME), 'IsPrimaryKey') = 1
+			AND TABLE_NAME = '{tableName}';";
+
+				using var reader = await cmd.ExecuteReaderAsync();
+				if (await reader.ReadAsync())
+					return reader.GetString(0);
+			}
+			else if (_provider == DbProvider.MariaDB)
+			{
+				cmd.CommandText = $@"
+			SELECT COLUMN_NAME
+			FROM information_schema.COLUMNS
+			WHERE TABLE_SCHEMA = DATABASE()
+			AND TABLE_NAME = '{tableName}'
+			AND COLUMN_KEY = 'PRI';";
+
+				using var reader = await cmd.ExecuteReaderAsync();
+				if (await reader.ReadAsync())
+					return reader.GetString(0);
+			}
+			else throw new NotSupportedException();
 
 			await _connection.CloseAsync();
 			return null;
 		}
 
-		private string Quote(string name) => _provider switch
+		private string Quote(string identifier)
 		{
-			DbProvider.SQLite => $"\"{name}\"",
-			DbProvider.MSSQL => $"[{name}]",
-			DbProvider.MariaDB => $"`{name}`",
-			_ => throw new NotSupportedException()
-		};
+			return _provider switch
+			{
+				DbProvider.MSSQL => $"[{identifier}]",
+				DbProvider.MariaDB => $"`{identifier}`",
+				DbProvider.SQLite => $"\"{identifier}\"",
+				_ => identifier
+			};
+		}
+
 
 		#region CRUD methods
 
 		public async Task<List<Dictionary<string, object>>> GetDataRowsAsync(string tableName) // for loading and refresh
 		{
 			var rows = new List<Dictionary<string, object>>();
-			await _connection.OpenAsync();
+			if (_connection.State != ConnectionState.Open)
+				await _connection.OpenAsync();
 
 			using var command = _connection.CreateCommand();
 
 			if (_provider == DbProvider.SQLite)
-				command.CommandText = $"SELECT * FROM \"{tableName}\""; // SQLite používá uvozovky
+				command.CommandText = $"SELECT * FROM \"{tableName}\"";
 			else if (_provider == DbProvider.MSSQL)
-				command.CommandText = $"SELECT * FROM [{tableName}]"; // MSSQL hranaté závorky
+				command.CommandText = $"SELECT * FROM [{tableName}]";
 			else if (_provider == DbProvider.MariaDB)
-				command.CommandText = $"SELECT * FROM `{tableName}`"; // MariaDB zpětné apostrofy
+				command.CommandText = $"SELECT * FROM `{tableName}`";
 			else
 				throw new NotSupportedException();
 
@@ -182,33 +219,54 @@ namespace AnonymousDataExplorer.Services
 			await _connection.CloseAsync();
 		}
 
-		public async Task InsertRowAsync(string tableName, string pkColumn, Dictionary<string, object> data) // inserting new row in table
+		public async Task InsertRowAsync(string tableName, string pkColumn, Dictionary<string, object> data)
 		{
-			await _connection.OpenAsync();
+			if (_connection.State != ConnectionState.Open)
+				await _connection.OpenAsync();
 
-			var insertable = data.Where(kvp => kvp.Key != pkColumn); // only not PK columns
+			var insertable = data.Where(kvp => kvp.Key != pkColumn);
 
-			var columns = string.Join(", ", insertable.Select(kvp => $"[{kvp.Key}]"));
+			var columns = string.Join(", ", insertable.Select(kvp => Quote(kvp.Key)));
 			var parameters = string.Join(", ", insertable.Select(kvp => $"@{kvp.Key}"));
 
 			using var cmd = _connection.CreateCommand();
 			cmd.CommandText = $"INSERT INTO {Quote(tableName)} ({columns}) VALUES ({parameters})";
 
-			foreach (var kvp in insertable) // same as update
+			foreach (var kvp in insertable)
 			{
 				var param = cmd.CreateParameter();
 				param.ParameterName = $"@{kvp.Key}";
-				param.Value = kvp.Value ?? DBNull.Value;
+
+				object value = kvp.Value;
+
+				// obecné ošetření na DBNull
+				if (value is string s && string.IsNullOrWhiteSpace(s))
+					value = DBNull.Value;
+				else if (value is DateTime dt && dt == default)
+					value = DBNull.Value;
+				else if (value == null)
+					value = DBNull.Value;
+
+				// konkrétní sloupce: fallback default hodnoty
+				//if (value == DBNull.Value && kvp.Key.Equals("PurchasePrice", StringComparison.OrdinalIgnoreCase))
+				//	value = 0;
+				//if (value == DBNull.Value && kvp.Key.Equals("LastName", StringComparison.OrdinalIgnoreCase))
+				//	value = "Unknown";
+				if (value == DBNull.Value && kvp.Key.Equals("Birthday", StringComparison.OrdinalIgnoreCase))
+					value = new DateTime(2000, 1, 1); // nebo co chceš
+
+				param.Value = value;
 				cmd.Parameters.Add(param);
 			}
 
 			await cmd.ExecuteNonQueryAsync();
 			await _connection.CloseAsync();
 		}
-		
+
 		public async Task DeleteRowAsync(string tableName, string pkColumn, object pkValue) // deleting row in table
 		{
-			await _connection.OpenAsync();
+			if (_connection.State != ConnectionState.Open)
+				await _connection.OpenAsync();
 
 			using var cmd = _connection.CreateCommand();
 			cmd.CommandText = $"DELETE FROM [{tableName}] WHERE [{pkColumn}] = @id";

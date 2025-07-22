@@ -1,55 +1,33 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.Data.SqlClient;
+using Microsoft.Data.Sqlite;
+using MySqlConnector;
 using System.Data.Common;
 
 namespace AnonymousDataExplorer.Services
 {
-	public class AppDbContext : DbContext
+	public class DatabaseService
 	{
+		private readonly DbConnection _connection;
 		private readonly DbProvider _provider;
-		private readonly string _connectionString;
 
-		public AppDbContext(DbProvider provider, IConfiguration config)
+		public DatabaseService(DbProvider provider, IConfiguration config)
 		{
 			_provider = provider;
-			_connectionString = provider switch
+			var connectionString = provider switch
 			{
 				DbProvider.SQLite => config.GetConnectionString("SqliteConnection")!,
 				DbProvider.MSSQL => config.GetConnectionString("MssqlConnection")!,
 				DbProvider.MariaDB => config.GetConnectionString("MariadbConnection")!,
 				_ => throw new NotSupportedException()
-			}; // default connectionString from json
-		}
+			};
 
-		protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder) // calling in DbContext ctor
-		{
-			switch (_provider)
+			_connection = provider switch
 			{
-				case DbProvider.SQLite:
-					optionsBuilder.UseSqlite(_connectionString);
-					break;
-				case DbProvider.MSSQL:
-					optionsBuilder.UseSqlServer(_connectionString);
-					break;
-				case DbProvider.MariaDB:
-					optionsBuilder.UseMySql(_connectionString, ServerVersion.AutoDetect(_connectionString));
-					break;
-				default:
-					throw new NotSupportedException();
-			}
-		}
-	}
-
-	public class DatabaseService
-	{
-		private readonly AppDbContext _context; // EF
-		private readonly DbProvider _provider; // provider for showing structure
-		private readonly DbConnection _connection; // for anonymous connect to DB
-
-		public DatabaseService(AppDbContext context, DbProvider provider)
-		{
-			_context = context;
-			_provider = provider;
-			_connection = _context.Database.GetDbConnection();
+				DbProvider.SQLite => new SqliteConnection(connectionString),
+				DbProvider.MSSQL => new SqlConnection(connectionString),
+				DbProvider.MariaDB => new MySqlConnection(connectionString),
+				_ => throw new NotSupportedException()
+			};
 		}
 
 		public async Task<List<string>> GetTableNamesAsync() // names of tables in DB for comboBox f.e.
@@ -78,13 +56,85 @@ namespace AnonymousDataExplorer.Services
 			return result;
 		}
 
+		public async Task<List<string>> GetColumnNamesOnlyAsync(string tableName) // names of columns in table - for creating columns and fields
+		{
+			var result = new List<string>();
+			await _connection.OpenAsync();
+
+			using var cmd = _connection.CreateCommand();
+
+			if (_provider == DbProvider.SQLite)
+				cmd.CommandText = $"PRAGMA table_info(\"{tableName}\");";
+			else if (_provider == DbProvider.MSSQL)
+				cmd.CommandText = $"SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '{tableName}';";
+			else if (_provider == DbProvider.MariaDB)
+				cmd.CommandText = $"SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '{tableName}';";
+			else
+				throw new NotSupportedException();
+
+			using var reader = await cmd.ExecuteReaderAsync();
+			while (await reader.ReadAsync())
+			{
+				var name = _provider switch
+				{
+					DbProvider.SQLite => reader["name"].ToString(),
+					DbProvider.MSSQL => reader["COLUMN_NAME"].ToString(),
+					DbProvider.MariaDB => reader["COLUMN_NAME"].ToString(),
+					_ => null
+				}; // name of columns
+
+				if (!string.IsNullOrEmpty(name))
+					result.Add(name);
+			}
+
+			await _connection.CloseAsync();
+			return result;
+		}
+
+		public async Task<string?> GetPrimaryKeyColumnAsync(string tableName) // returns name of column that is marked as PK
+		{
+			await _connection.OpenAsync();
+			using var cmd = _connection.CreateCommand();
+			
+			cmd.CommandText = $"PRAGMA table_info({tableName});"; // query for metadata of table - table describing (columns etc.)
+
+			using var reader = await cmd.ExecuteReaderAsync();
+			while (await reader.ReadAsync()) // finding "PK" column
+			{
+				var isPk = Convert.ToInt32(reader["pk"]);
+				if (isPk == 1)
+					return reader["name"].ToString(); // name of PK column
+			}
+
+			await _connection.CloseAsync();
+			return null;
+		}
+
+		private string Quote(string name) => _provider switch
+		{
+			DbProvider.SQLite => $"\"{name}\"",
+			DbProvider.MSSQL => $"[{name}]",
+			DbProvider.MariaDB => $"`{name}`",
+			_ => throw new NotSupportedException()
+		};
+
+		#region CRUD methods
+
 		public async Task<List<Dictionary<string, object>>> GetDataRowsAsync(string tableName) // for loading and refresh
 		{
 			var rows = new List<Dictionary<string, object>>();
 			await _connection.OpenAsync();
 
 			using var command = _connection.CreateCommand();
-			command.CommandText = $"SELECT * FROM [{tableName}]";
+
+			if (_provider == DbProvider.SQLite)
+				command.CommandText = $"SELECT * FROM \"{tableName}\""; // SQLite používá uvozovky
+			else if (_provider == DbProvider.MSSQL)
+				command.CommandText = $"SELECT * FROM [{tableName}]"; // MSSQL hranaté závorky
+			else if (_provider == DbProvider.MariaDB)
+				command.CommandText = $"SELECT * FROM `{tableName}`"; // MariaDB zpětné apostrofy
+			else
+				throw new NotSupportedException();
 
 			using var reader = await command.ExecuteReaderAsync();
 			while (await reader.ReadAsync())
@@ -99,26 +149,6 @@ namespace AnonymousDataExplorer.Services
 
 			await _connection.CloseAsync();
 			return rows;
-		}
-
-		public async Task<List<string>> GetColumnNamesOnlyAsync(string tableName) // names of columns in table - for creating columns and fields
-		{
-			var result = new List<string>();
-			await _connection.OpenAsync();
-
-			using var cmd = _connection.CreateCommand();
-			cmd.CommandText = $"PRAGMA table_info({tableName});"; // query for metadata of table - table describing (columns etc.)
-
-			using var reader = await cmd.ExecuteReaderAsync();
-			while (await reader.ReadAsync())
-			{
-				var name = reader["name"].ToString(); // name of columns
-				if (!string.IsNullOrEmpty(name))
-					result.Add(name);
-			}
-
-			await _connection.CloseAsync();
-			return result;
 		}
 
 		public async Task UpdateRowAsync(string tableName, string keyColumn, object keyValue, Dictionary<string, object> data) // update of row in table
@@ -152,24 +182,30 @@ namespace AnonymousDataExplorer.Services
 			await _connection.CloseAsync();
 		}
 
-		public async Task<string?> GetPrimaryKeyColumnAsync(string tableName) // returns name of column that is marked as PK
+		public async Task InsertRowAsync(string tableName, string pkColumn, Dictionary<string, object> data) // inserting new row in table
 		{
 			await _connection.OpenAsync();
-			using var cmd = _connection.CreateCommand();
-			cmd.CommandText = $"PRAGMA table_info({tableName});"; // query for metadata of table - table describing (columns etc.)
 
-			using var reader = await cmd.ExecuteReaderAsync();
-			while (await reader.ReadAsync()) // finding "PK" column
+			var insertable = data.Where(kvp => kvp.Key != pkColumn); // only not PK columns
+
+			var columns = string.Join(", ", insertable.Select(kvp => $"[{kvp.Key}]"));
+			var parameters = string.Join(", ", insertable.Select(kvp => $"@{kvp.Key}"));
+
+			using var cmd = _connection.CreateCommand();
+			cmd.CommandText = $"INSERT INTO {Quote(tableName)} ({columns}) VALUES ({parameters})";
+
+			foreach (var kvp in insertable) // same as update
 			{
-				var isPk = Convert.ToInt32(reader["pk"]);
-				if (isPk == 1)
-					return reader["name"].ToString(); // name of PK column
+				var param = cmd.CreateParameter();
+				param.ParameterName = $"@{kvp.Key}";
+				param.Value = kvp.Value ?? DBNull.Value;
+				cmd.Parameters.Add(param);
 			}
 
+			await cmd.ExecuteNonQueryAsync();
 			await _connection.CloseAsync();
-			return null;
 		}
-
+		
 		public async Task DeleteRowAsync(string tableName, string pkColumn, object pkValue) // deleting row in table
 		{
 			await _connection.OpenAsync();
@@ -185,30 +221,8 @@ namespace AnonymousDataExplorer.Services
 			await cmd.ExecuteNonQueryAsync(); // executing delete command
 			await _connection.CloseAsync();
 		}
-
-		public async Task InsertRowAsync(string tableName, string pkColumn, Dictionary<string, object> data) // inserting new row in table
-		{
-			await _connection.OpenAsync();
-
-			var insertable = data.Where(kvp => kvp.Key != pkColumn); // only not PK columns
-
-			var columns = string.Join(", ", insertable.Select(kvp => $"[{kvp.Key}]"));
-			var parameters = string.Join(", ", insertable.Select(kvp => $"@{kvp.Key}"));
-
-			using var cmd = _connection.CreateCommand();
-			cmd.CommandText = $"INSERT INTO [{tableName}] ({columns}) VALUES ({parameters})";
-
-			foreach (var kvp in insertable) // same as update
-			{
-				var param = cmd.CreateParameter();
-				param.ParameterName = $"@{kvp.Key}";
-				param.Value = kvp.Value ?? DBNull.Value;
-				cmd.Parameters.Add(param);
-			}
-
-			await cmd.ExecuteNonQueryAsync();
-			await _connection.CloseAsync();
-		}
+		
+		#endregion
 	}
 
 }

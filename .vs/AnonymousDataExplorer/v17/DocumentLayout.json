@@ -9,10 +9,6 @@
     {
       "AbsoluteMoniker": "D:0:0:{01A83E28-7B0F-4052-8DAF-2C72D50D5B82}|AnonymousDataExplorer\\AnonymousDataExplorer.csproj|c:\\users\\josef.prochazka\\source\\repos\\anonymousdataexplorer\\anonymousdataexplorer\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{01A83E28-7B0F-4052-8DAF-2C72D50D5B82}|AnonymousDataExplorer\\AnonymousDataExplorer.csproj|solutionrelative:anonymousdataexplorer\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{01A83E28-7B0F-4052-8DAF-2C72D50D5B82}|AnonymousDataExplorer\\AnonymousDataExplorer.csproj|c:\\users\\josef.prochazka\\source\\repos\\anonymousdataexplorer\\anonymousdataexplorer\\anonymousdataexplorer.csproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|",
-      "RelativeMoniker": "D:0:0:{01A83E28-7B0F-4052-8DAF-2C72D50D5B82}|AnonymousDataExplorer\\AnonymousDataExplorer.csproj|solutionrelative:anonymousdataexplorer\\anonymousdataexplorer.csproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|"
     }
   ],
   "DocumentGroupContainers": [
@@ -32,7 +28,7 @@
               "RelativeDocumentMoniker": "AnonymousDataExplorer\\Services\\DatabaseService.cs",
               "ToolTip": "C:\\Users\\josef.prochazka\\source\\repos\\AnonymousDataExplorer\\AnonymousDataExplorer\\Services\\DatabaseService.cs*",
               "RelativeToolTip": "AnonymousDataExplorer\\Services\\DatabaseService.cs*",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAABMAAAAGAAAAAAAAAA==",
+              "ViewState": "AgIAAAcAAAAAAAAAAAAxwGAAAAAvAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2025-07-21T07:37:33.794Z",
               "IsPinned": true,
@@ -46,24 +42,9 @@
               "RelativeDocumentMoniker": "AnonymousDataExplorer\\Program.cs",
               "ToolTip": "C:\\Users\\josef.prochazka\\source\\repos\\AnonymousDataExplorer\\AnonymousDataExplorer\\Program.cs",
               "RelativeToolTip": "AnonymousDataExplorer\\Program.cs",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAgAAABDAAAAAAAAAA==",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAA0AAAAVAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-07-21T19:57:15.418Z",
-              "IsPinned": true,
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 2,
-              "Title": "AnonymousDataExplorer.csproj",
-              "DocumentMoniker": "C:\\Users\\josef.prochazka\\source\\repos\\AnonymousDataExplorer\\AnonymousDataExplorer\\AnonymousDataExplorer.csproj",
-              "RelativeDocumentMoniker": "AnonymousDataExplorer\\AnonymousDataExplorer.csproj",
-              "ToolTip": "C:\\Users\\josef.prochazka\\source\\repos\\AnonymousDataExplorer\\AnonymousDataExplorer\\AnonymousDataExplorer.csproj",
-              "RelativeToolTip": "AnonymousDataExplorer\\AnonymousDataExplorer.csproj",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAABAAAABRAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000758|",
-              "WhenOpened": "2025-07-21T21:01:58.244Z",
-              "IsPinned": true,
+              "WhenOpened": "2025-07-22T09:01:24.036Z",
               "EditorCaption": ""
             }
           ]

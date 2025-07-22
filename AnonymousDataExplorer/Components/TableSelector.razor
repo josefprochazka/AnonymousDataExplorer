@@ -43,11 +43,11 @@ else
                 <GridColumn Title="Akce" Width="280px">
                     <Template Context="rowObj">
                         <button class="btn btn-info btn-sm"
-                                @onclick="() => DetailItem((Dictionary<string, object>)rowObj)">
+                                @onclick="() => EditItem((Dictionary<string, object>)rowObj, true)">
                             Zobrazit Detail
                         </button>
                         <button class="btn btn-primary btn-sm"
-                                @onclick="() => EditItem((Dictionary<string, object>)rowObj)">
+                                @onclick="() => EditItem((Dictionary<string, object>)rowObj, false)">
                             Editovat
                         </button>
                         <button class="btn btn-danger btn-sm"
@@ -68,7 +68,7 @@ else
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Editace záznamu</h5>
+                    <h5 class="modal-title">@((IsReadOnly ? "Detail" : "Editace") + " záznamu")</h5>
                     <button type="button" class="btn-close" @onclick="() => EditDialogVisible = false"></button>
                 </div>
                 <div class="modal-body">
@@ -76,46 +76,29 @@ else
                     {
                         <div class="mb-2">
                             <label>@col</label>
-                            <input class="form-control" @bind="EditRowString[col]" />
+                            <input class="form-control"
+                                   value="@EditRowString[col]"
+                                   @oninput="e => EditRowString[col] = e.Value?.ToString() ?? string.Empty"
+                                   readonly="@IsReadOnly" />
                         </div>
                     }
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-secondary" @onclick="() => EditDialogVisible = false">Zrušit</button>
-                    <button class="btn btn-primary" @onclick="SaveEditAsync">Uložit</button>
-                </div>
-            </div>
-        </div>
-    </div>
-}
-
-@* ========== dialog for readonly ========== *@
-@if (ReadOnlyDialogVisible)
-{
-    <div class="modal show d-block" style="background-color: rgba(0,0,0,0.5);">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Detail záznamu</h5>
-                    <button type="button" class="btn-close" @onclick="() => ReadOnlyDialogVisible = false"></button>
-                </div>
-                <div class="modal-body">
-                    @foreach (var col in ColumnNames)
+                    @if (IsReadOnly)
                     {
-                        <div class="mb-2">
-                            <label>@col</label>
-                            <input class="form-control" value="@DetailRowString[col]" readonly />
-                        </div>
+                        <button class="btn btn-secondary" @onclick="() => EditDialogVisible = false">Zavřít</button>
                     }
-                </div>
-                <div class="modal-footer">
-                    <button class="btn btn-secondary" @onclick="() => ReadOnlyDialogVisible = false">Zavřít</button>
+                    else
+                    {
+                        <button class="btn btn-secondary" @onclick="() => EditDialogVisible = false">Zrušit</button>
+                        <button class="btn btn-primary" @onclick="SaveEditAsync">Uložit</button>
+                    }
+
                 </div>
             </div>
         </div>
     </div>
 }
-
 
 @code {
     #region Fields and Properties
@@ -135,6 +118,8 @@ else
 
     private bool ShowGrid = true;
 
+    private bool IsReadOnly = false;
+
     #endregion Fields and Properties
 
     #region Create, Show, Edit, Delete methods
@@ -150,19 +135,21 @@ else
         EditDialogVisible = true;
     }
 
-    private void DetailItem(Dictionary<string, object> item)
-    {
-        DetailRowString = item.ToDictionary(x => x.Key, x => x.Value?.ToString() ?? "");
-        ReadOnlyDialogVisible = true;
-    }
+    // private void DetailItem(Dictionary<string, object> item)
+    // {
+    //     DetailRowString = item.ToDictionary(x => x.Key, x => x.Value?.ToString() ?? "");
+    //     ReadOnlyDialogVisible = true;
+    // }
 
-    private void EditItem(Dictionary<string, object> item)
+    private void EditItem(Dictionary<string, object> item, bool isReadOnly)
     {
         EditRow = new(item);
         EditRowString = item.ToDictionary(x => x.Key, x => x.Value?.ToString() ?? "");
         EditKey = GetPkValue(item);
+        IsReadOnly = isReadOnly;
         EditDialogVisible = true;
     }
+
 
     private async Task SaveEditAsync()
     {

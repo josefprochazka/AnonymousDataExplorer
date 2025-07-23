@@ -1,6 +1,7 @@
 ﻿using Microsoft.Data.SqlClient;
 using Microsoft.Data.Sqlite;
 using MySqlConnector;
+using SQLitePCL;
 using System.Data;
 using System.Data.Common;
 
@@ -249,6 +250,7 @@ namespace AnonymousDataExplorer.Services
 
 
 				var columnType = columnMeta[kvp.Key].Item1.ToLower();
+				var raw = kvp.Value?.ToString()?.Trim();
 
 				if (columnType.Contains("date") || columnType.Contains("time"))
 				{
@@ -257,10 +259,12 @@ namespace AnonymousDataExplorer.Services
 					else
 						param.Value = DBNull.Value;
 				}
+				else if (columnType.Contains("bit") || columnType.Contains("bool"))
+				{
+					param.Value = (raw == "true" || raw == "1") ? 1 : 0;
+				}
 				else
 				{
-					var raw = kvp.Value?.ToString()?.Trim();
-
 					if (string.IsNullOrWhiteSpace(raw))
 					{
 						param.Value = DBNull.Value;
@@ -293,7 +297,7 @@ namespace AnonymousDataExplorer.Services
 			await _connection.CloseAsync();
 		}
 
-		public async Task<object?> InsertRowAsync(string tableName, string pkColumn, Dictionary<string, object> data)
+		public async Task<object?> InsertRowAsync(string tableName, string pkColumn, Dictionary<string, object> data, Dictionary<string, (string, bool)> columnMeta)
 		{
 			if (_connection.State != ConnectionState.Open)
 				await _connection.OpenAsync();
@@ -313,15 +317,22 @@ namespace AnonymousDataExplorer.Services
 
 				object value = kvp.Value;
 
+				if (columnMeta.TryGetValue(kvp.Key, out var meta))
+				{
+					var type = meta.Item1.ToLower();
+					if (type.Contains("bit") || type.Contains("bool"))
+					{
+						var val = value?.ToString()?.ToLower();
+						value = (val == "true" || val == "1") ? 1 : 0;
+					}
+				}
+
 				if (value is string s && string.IsNullOrWhiteSpace(s))
 					value = DBNull.Value;
 				else if (value is DateTime dt && dt == default)
 					value = DBNull.Value;
 				else if (value == null)
 					value = DBNull.Value;
-
-				if (value == DBNull.Value && kvp.Key.Equals("Birthday", StringComparison.OrdinalIgnoreCase))
-					value = new DateTime(2000, 1, 1);
 
 				param.Value = value;
 				cmd.Parameters.Add(param);

@@ -308,25 +308,82 @@ namespace AnonymousDataExplorer.Services
 			};
 		}
 
-
-		public async Task DeleteRowAsync(string tableName, string pkColumn, object pkValue) // deleting row in table
+		public async Task DeleteRowAsync(string tableName, string pkColumn, object pkValue)
 		{
 			if (_connection.State != ConnectionState.Open)
 				await _connection.OpenAsync();
 
 			using var cmd = _connection.CreateCommand();
-			cmd.CommandText = $"DELETE FROM [{tableName}] WHERE [{pkColumn}] = @id";
+
+			var quotedTable = Quote(tableName);
+			var quotedColumn = Quote(pkColumn);
+			cmd.CommandText = $"DELETE FROM {quotedTable} WHERE {quotedColumn} = @id";
 
 			var idParam = cmd.CreateParameter();
 			idParam.ParameterName = "@id";
 			idParam.Value = pkValue;
 			cmd.Parameters.Add(idParam);
 
-			await cmd.ExecuteNonQueryAsync(); // executing delete command
+			await cmd.ExecuteNonQueryAsync();
 			await _connection.CloseAsync();
 		}
-		
+
+
 		#endregion
+
+		public async Task<Dictionary<string, (string DataType, bool IsNotNull)>> GetColumnMetaAsync(string tableName)
+		{
+			var result = new Dictionary<string, (string, bool)>();
+
+			if (_connection.State != ConnectionState.Open)
+				await _connection.OpenAsync();
+
+			using var cmd = _connection.CreateCommand();
+
+			if (_provider == DbProvider.SQLite)
+				cmd.CommandText = $"PRAGMA table_info({Quote(tableName)});";
+			else if (_provider == DbProvider.MSSQL)
+				cmd.CommandText = $@"
+			SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE 
+			FROM INFORMATION_SCHEMA.COLUMNS 
+			WHERE TABLE_NAME = '{tableName}';";
+			else if (_provider == DbProvider.MariaDB)
+				cmd.CommandText = $@"
+			SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE 
+			FROM INFORMATION_SCHEMA.COLUMNS 
+			WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '{tableName}';";
+			else
+				throw new NotSupportedException();
+
+			using var reader = await cmd.ExecuteReaderAsync();
+
+			while (await reader.ReadAsync())
+			{
+				string? name = null;
+				string? type = null;
+				bool notNull = false;
+
+				if (_provider == DbProvider.SQLite)
+				{
+					name = reader["name"].ToString();
+					type = reader["type"].ToString();
+					notNull = Convert.ToInt32(reader["notnull"]) == 1;
+				}
+				else
+				{
+					name = reader["COLUMN_NAME"].ToString();
+					type = reader["DATA_TYPE"].ToString();
+					notNull = reader["IS_NULLABLE"].ToString() == "NO";
+				}
+
+				if (!string.IsNullOrEmpty(name))
+					result[name] = (type ?? "", notNull);
+			}
+
+			await _connection.CloseAsync();
+			return result;
+		}
+
 	}
 
 }

@@ -61,7 +61,7 @@ else
     }
 }
 
-@* ========== dialog for editing ========== *@
+@* ========== dialog for read and editing ========== *@
 @if (EditDialogVisible)
 {
     <div class="modal show d-block" style="background-color: rgba(0,0,0,0.5);">
@@ -74,14 +74,44 @@ else
                 <div class="modal-body">
                     @foreach (var col in ColumnNames)
                     {
+                        var meta = ColumnMeta.ContainsKey(col) ? ColumnMeta[col] : ("text", false);
+                        var type = meta.Item1.ToLower();
+                        var isRequired = meta.Item2;
+
+
                         <div class="mb-2">
                             <label>@col</label>
-                            <input class="form-control"
-                                   value="@EditRowString[col]"
-                                   @oninput="e => EditRowString[col] = e.Value?.ToString() ?? string.Empty"
-                                   readonly="@IsReadOnly" />
+
+                            @if (type.Contains("date"))
+                            {
+                                <input class="form-control"
+                                       type="date"
+                                       value="@EditRowString[col]"
+                                       @oninput="e => EditRowString[col] = e.Value?.ToString() ?? string.Empty"
+                                       readonly="@IsReadOnly"
+                                       required="@isRequired" />
+                            }
+                            else if (type.Contains("int") || type.Contains("decimal") || type.Contains("numeric"))
+                            {
+                                <input class="form-control"
+                                       type="number"
+                                       value="@EditRowString[col]"
+                                       @oninput="e => EditRowString[col] = e.Value?.ToString() ?? string.Empty"
+                                       readonly="@IsReadOnly"
+                                       required="@isRequired" />
+                            }
+                            else
+                            {
+                                <input class="form-control"
+                                       type="text"
+                                       value="@EditRowString[col]"
+                                       @oninput="e => EditRowString[col] = e.Value?.ToString() ?? string.Empty"
+                                       readonly="@IsReadOnly"
+                                       required="@isRequired" />
+                            }
                         </div>
                     }
+
                 </div>
                 <div class="modal-footer">
                     @if (IsReadOnly)
@@ -119,6 +149,8 @@ else
     private bool ShowGrid = true;
 
     private bool IsReadOnly = false;
+
+    private Dictionary<string, (string, bool)> ColumnMeta = new();
 
     #endregion Fields and Properties
 
@@ -191,13 +223,13 @@ else
             DataRows = list;              // přiřazení spustí rerender
         }
 
-        
+
 
 
         EditDialogVisible = false;
     }
 
-    private async void DeleteItem(Dictionary<string, object> item)
+    private async Task DeleteItem(Dictionary<string, object> item)
     {
         if (SelectedTable is null)
             return;
@@ -209,8 +241,17 @@ else
             return;
 
         await DbService.DeleteRowAsync(SelectedTable, keyColumn, keyValue);
-        DataRows = await DbService.GetDataRowsAsync(SelectedTable);
+
+        var index = DataRows.FindIndex(row => row[keyColumn]?.ToString() == keyValue.ToString());
+
+        if (index >= 0)
+        {
+            var list = DataRows.ToList(); // kopie
+            list.RemoveAt(index);         // smaže daný řádek podle indexu
+            DataRows = list;              // rerender
+        }
     }
+
 
     #endregion Create, Show, Edit, Delete
 
@@ -234,6 +275,7 @@ else
         {
             ColumnNames = await DbService.GetColumnNamesOnlyAsync(SelectedTable);
             DataRows = await DbService.GetDataRowsAsync(SelectedTable);
+            ColumnMeta = await DbService.GetColumnMetaAsync(SelectedTable);
         }
         else
         {

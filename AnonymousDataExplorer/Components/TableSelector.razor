@@ -72,12 +72,20 @@ else
                     <button type="button" class="btn-close" @onclick="() => EditDialogVisible = false"></button>
                 </div>
                 <div class="modal-body">
+                    @if (!string.IsNullOrEmpty(ValidationErrorMessage))
+                    {
+                        <div class="alert alert-danger">
+                            @ValidationErrorMessage
+                        </div>
+                    }
                     @foreach (var col in ColumnNames)
                     {
+                        if (col == PrimaryKeyColumn)
+                            continue;
+
                         var meta = ColumnMeta.ContainsKey(col) ? ColumnMeta[col] : ("text", false);
                         var type = meta.Item1.ToLower();
                         var isRequired = meta.Item2;
-
 
                         <div class="mb-2">
                             <label>@col</label>
@@ -153,11 +161,15 @@ else
 
     private Dictionary<string, (string, bool)> ColumnMeta = new();
 
+    private string? ValidationErrorMessage = null;
+
+    private string? PrimaryKeyColumn;
+
     #endregion Fields and Properties
 
     #region Create, Show, Edit, Delete methods
 
-    private void CreateNewItem()
+    private async Task CreateNewItem()
     {
         if (string.IsNullOrEmpty(SelectedTable))
             return;
@@ -165,29 +177,43 @@ else
         EditRow = new Dictionary<string, object>();
         EditRowString = ColumnNames.ToDictionary(col => col, col => "");
         EditKey = null; // new record without existing PK
+
+        PrimaryKeyColumn = await DbService.GetPrimaryKeyColumnAsync(SelectedTable);
+
         EditDialogVisible = true;
     }
 
-    // private void DetailItem(Dictionary<string, object> item)
-    // {
-    //     DetailRowString = item.ToDictionary(x => x.Key, x => x.Value?.ToString() ?? "");
-    //     ReadOnlyDialogVisible = true;
-    // }
-
-    private void EditItem(Dictionary<string, object> item, bool isReadOnly)
+    private async Task EditItem(Dictionary<string, object> item, bool isReadOnly)
     {
         EditRow = new(item);
         EditRowString = item.ToDictionary(x => x.Key, x => x.Value?.ToString() ?? "");
         EditKey = GetPkValue(item);
         IsReadOnly = isReadOnly;
+        PrimaryKeyColumn = await DbService.GetPrimaryKeyColumnAsync(SelectedTable);
+
         EditDialogVisible = true;
     }
-
 
     private async Task SaveEditAsync()
     {
         if (SelectedTable is null || ColumnNames.Count == 0)
             return;
+
+        // validace NOT NULL polí – podle ColumnMeta
+        var missingRequired = ColumnMeta
+            .Where(kvp => kvp.Value.Item2) // jen NOT NULL pole
+            .Where(kvp => kvp.Key != PrimaryKeyColumn) // skip PK
+            .Select(kvp => kvp.Key)
+            .Where(col => string.IsNullOrWhiteSpace(EditRowString[col]))
+            .ToList();
+
+        if (missingRequired.Any())
+        {
+            ValidationErrorMessage = "Chybí vyplnit: " + string.Join(", ", missingRequired);
+            return; // zůstaň v dialogu, nic se neuloží
+        }
+
+        ValidationErrorMessage = null; // smaž chybu pokud vše ok
 
         var keyColumn = await DbService.GetPrimaryKeyColumnAsync(SelectedTable);
         if (keyColumn is null)

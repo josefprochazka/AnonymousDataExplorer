@@ -91,7 +91,7 @@ else
                                        readonly="@IsReadOnly"
                                        required="@isRequired" />
                             }
-                            else if (type.Contains("int") || type.Contains("decimal") || type.Contains("numeric"))
+                            else if (type.Contains("int") || type.Contains("decimal") || type.Contains("numeric") || type.Contains("float") || type.Contains("double") || type.Contains("real"))
                             {
                                 <input class="form-control"
                                        type="number"
@@ -129,6 +129,7 @@ else
         </div>
     </div>
 }
+
 
 @code {
     #region Fields and Properties
@@ -201,7 +202,6 @@ else
         {
             var insertedId = await DbService.InsertRowAsync(SelectedTable, keyColumn, EditRow);
             var newRow = await DbService.GetRowByIdAsync(SelectedTable, keyColumn, insertedId);
-            //DataRows.Add(newRow);
 
             var list = DataRows.ToList(); // kopie
             list.Add(newRow);             // nebo list[index] = updatedRow
@@ -209,22 +209,15 @@ else
         }
         else
         {
-            await DbService.UpdateRowAsync(SelectedTable, keyColumn, EditKey, EditRow);
+            await DbService.UpdateRowAsync(SelectedTable, keyColumn, EditKey, EditRow, ColumnMeta);
             var updatedRow = await DbService.GetRowByIdAsync(SelectedTable, keyColumn, EditKey);
             var index = DataRows.FindIndex(row => row[keyColumn]?.ToString() == EditKey.ToString());
-            // if (index >= 0)
-            //     DataRows[index] = updatedRow;
 
             var list = DataRows.ToList(); // kopie
-
             if (index >= 0)
                 list[index] = updatedRow;
-
             DataRows = list;              // přiřazení spustí rerender
         }
-
-
-
 
         EditDialogVisible = false;
     }

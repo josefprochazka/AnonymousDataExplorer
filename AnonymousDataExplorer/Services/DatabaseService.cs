@@ -225,34 +225,71 @@ namespace AnonymousDataExplorer.Services
 			return rows;
 		}
 
-		public async Task UpdateRowAsync(string tableName, string keyColumn, object keyValue, Dictionary<string, object> data) // update of row in table
+		public async Task UpdateRowAsync(string tableName, string keyColumn, object keyValue, Dictionary<string, object> data, Dictionary<string, (string, bool)> columnMeta)
 		{
-			await _connection.OpenAsync();
+			if (_connection.State != ConnectionState.Open)
+				await _connection.OpenAsync();
 
-			// keyColumn = column with ID
-			// keyValue = value of this ID
-			var setParts = data.Where(kvp => kvp.Key != keyColumn).Select(kvp => $"{kvp.Key} = @{kvp.Key}").ToArray(); // query text for each SET
-			var setClause = string.Join(", ", setParts); // all fields for SET
+			var setParts = data.Where(kvp => kvp.Key != keyColumn)
+				.Select(kvp => $"{Quote(kvp.Key)} = @{kvp.Key}")
+				.ToArray();
+
+			var setClause = string.Join(", ", setParts);
+			string quotedTable = Quote(tableName);
+			string quotedKey = Quote(keyColumn);
 
 			using var command = _connection.CreateCommand();
-			command.CommandText = $"UPDATE [{tableName}] SET {setClause} WHERE {keyColumn} = @keyValue";
 
-			// setting how to run SET exactly (not for PK)
+			command.CommandText = $"UPDATE {quotedTable} SET {setClause} WHERE {quotedKey} = @keyValue";
+
 			foreach (var kvp in data.Where(kvp => kvp.Key != keyColumn))
 			{
 				var param = command.CreateParameter();
 				param.ParameterName = $"@{kvp.Key}";
-				param.Value = kvp.Value ?? DBNull.Value;
+
+
+				var columnType = columnMeta[kvp.Key].Item1.ToLower();
+
+				if (columnType.Contains("date") || columnType.Contains("time"))
+				{
+					if (DateTime.TryParse(kvp.Value?.ToString(), out var parsedDate))
+						param.Value = parsedDate;
+					else
+						param.Value = DBNull.Value;
+				}
+				else
+				{
+					var raw = kvp.Value?.ToString()?.Trim();
+
+					if (string.IsNullOrWhiteSpace(raw))
+					{
+						param.Value = DBNull.Value;
+					}
+					else if (columnType.Contains("int") && int.TryParse(raw, out var i))
+					{
+						param.Value = i;
+					}
+					else if ((columnType.Contains("decimal") || columnType.Contains("numeric") || columnType.Contains("float") || columnType.Contains("double") || columnType.Contains("real"))
+							 && double.TryParse(raw, out var d))
+					{
+						param.Value = d;
+					}
+					else
+					{
+						param.Value = raw;
+					}
+				}
+
+
 				command.Parameters.Add(param);
 			}
 
-			// setting params for PK (took from params in this method)
 			var keyParam = command.CreateParameter();
 			keyParam.ParameterName = "@keyValue";
 			keyParam.Value = keyValue;
 			command.Parameters.Add(keyParam);
 
-			await command.ExecuteNonQueryAsync(); // executing update command
+			await command.ExecuteNonQueryAsync();
 			await _connection.CloseAsync();
 		}
 

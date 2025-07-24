@@ -21,17 +21,18 @@ else
     </select>
 }
 
-@* ========== grid + button New ========== *@
 @if (!string.IsNullOrEmpty(SelectedTable) && ColumnNames.Count > 0)
 {
     <h4>Data v tabulce @SelectedTable</h4>
 
+    @* ========== button New ========== *@
     <button class="btn btn-success mb-3"
             @onclick="CreateNewItem"
             disabled="@string.IsNullOrEmpty(SelectedTable)">
         Přidat nový záznam
     </button>
 
+    @* ========== grid ========== *@
     @if (ShowGrid && !string.IsNullOrEmpty(SelectedTable) && ColumnNames.Count > 0)
     {
         <TelerikGrid Data="@DataRows" Pageable="true" Groupable="true" Height="500px">
@@ -83,32 +84,32 @@ else
                         if (col == PrimaryKeyColumn)
                             continue;
 
-                        var meta = ColumnMeta.ContainsKey(col) ? ColumnMeta[col] : ("text", false);
-                        var type = meta.Item1.ToLower();
-                        var isRequired = meta.Item2;
+                        var columnMetaData = ColumnsMetaData.ContainsKey(col) ? ColumnsMetaData[col] : ("text", false);
+                        var columnType = columnMetaData.Item1.ToLower();
+                        var isNotNull = columnMetaData.Item2;
 
                         <div class="mb-2">
                             <label>@col</label>
 
-                            @if (type.Contains("date"))
+                            @if (columnType.Contains("date"))
                             {
                                 <input class="form-control"
                                        type="date"
                                        value="@EditRowString[col]"
                                        @oninput="e => EditRowString[col] = e.Value?.ToString() ?? string.Empty"
                                        readonly="@IsReadOnly"
-                                       required="@isRequired" />
+                                       required="@isNotNull" />
                             }
-                            else if (type.Contains("int") || type.Contains("decimal") || type.Contains("numeric") || type.Contains("float") || type.Contains("double") || type.Contains("real"))
+                            else if (columnType.Contains("int") || columnType.Contains("decimal") || columnType.Contains("numeric") || columnType.Contains("float") || columnType.Contains("double") || columnType.Contains("real"))
                             {
                                 <input class="form-control"
                                        type="number"
                                        value="@EditRowString[col]"
                                        @oninput="e => EditRowString[col] = e.Value?.ToString() ?? string.Empty"
                                        readonly="@IsReadOnly"
-                                       required="@isRequired" />
+                                       required="@isNotNull" />
                             }
-                            else if (type.Contains("bit") || type.Contains("bool"))
+                            else if (columnType.Contains("bit") || columnType.Contains("bool"))
                             {
                                 <div class="form-check">
                                     <input class="form-check-input"
@@ -119,7 +120,6 @@ else
                                     <label class="form-check-label">@col</label>
                                 </div>
                             }
-
                             else
                             {
                                 <input class="form-control"
@@ -127,7 +127,7 @@ else
                                        value="@EditRowString[col]"
                                        @oninput="e => EditRowString[col] = e.Value?.ToString() ?? string.Empty"
                                        readonly="@IsReadOnly"
-                                       required="@isRequired" />
+                                       required="@isNotNull" />
                             }
                         </div>
                     }
@@ -168,13 +168,9 @@ else
     private bool ReadOnlyDialogVisible = false;
 
     private bool ShowGrid = true;
-
     private bool IsReadOnly = false;
-
-    private Dictionary<string, (string, bool)> ColumnMeta = new();
-
+    private Dictionary<string, (string, bool)> ColumnsMetaData = new(); // <ColumnName, (ColumnTyp, IsNotNull)>
     private string? ValidationErrorMessage = null;
-
     private string? PrimaryKeyColumn;
 
     #endregion Fields and Properties
@@ -190,8 +186,7 @@ else
         EditRowString = ColumnNames.ToDictionary(col => col, col => "");
         EditKey = null; // new record without existing PK
 
-        PrimaryKeyColumn = await DbService.GetPrimaryKeyColumnAsync(SelectedTable);
-
+        PrimaryKeyColumn = await DbService.GetPrimaryKeyColumnNameAsync(SelectedTable);
         EditDialogVisible = true;
     }
 
@@ -201,7 +196,7 @@ else
         EditRowString = item.ToDictionary(x => x.Key, x => x.Value?.ToString() ?? "");
         EditKey = GetPkValue(item);
         IsReadOnly = isReadOnly;
-        PrimaryKeyColumn = await DbService.GetPrimaryKeyColumnAsync(SelectedTable);
+        PrimaryKeyColumn = await DbService.GetPrimaryKeyColumnNameAsync(SelectedTable);
 
         EditDialogVisible = true;
     }
@@ -211,25 +206,23 @@ else
         if (SelectedTable is null || ColumnNames.Count == 0)
             return;
 
-        // validace NOT NULL polí – podle ColumnMeta
-        var missingRequired = ColumnMeta
-            .Where(kvp => kvp.Value.Item2) // jen NOT NULL pole
-            .Where(kvp => kvp.Key != PrimaryKeyColumn) // skip PK
+        // validation of NotNull fields – podle ColumnMeta
+        var missingRequired = ColumnsMetaData
+            .Where(kvp => kvp.Value.Item2) // only IsNotNull
+            .Where(kvp => kvp.Key != PrimaryKeyColumn) // not validate PK
             .Select(kvp => kvp.Key)
             .Where(col => string.IsNullOrWhiteSpace(EditRowString[col]))
             .ToList();
 
-        if (missingRequired.Any())
+        if (missingRequired.Any()) // error happened
         {
             ValidationErrorMessage = "Chybí vyplnit: " + string.Join(", ", missingRequired);
-            return; // zůstaň v dialogu, nic se neuloží
+            return;
         }
 
-        ValidationErrorMessage = null; // smaž chybu pokud vše ok
+        ValidationErrorMessage = null; // no error
 
-        var keyColumn = await DbService.GetPrimaryKeyColumnAsync(SelectedTable);
-        if (keyColumn is null)
-            return;
+        var keyColumn = await DbService.GetPrimaryKeyColumnNameAsync(SelectedTable);
 
         foreach (var col in ColumnNames)
         {
@@ -238,23 +231,23 @@ else
 
         if (EditKey is null)
         {
-            var insertedId = await DbService.InsertRowAsync(SelectedTable, keyColumn, EditRow, ColumnMeta);
+            var insertedId = await DbService.InsertRowAsync(SelectedTable, keyColumn, EditRow, ColumnsMetaData);
             var newRow = await DbService.GetRowByIdAsync(SelectedTable, keyColumn, insertedId);
 
-            var list = DataRows.ToList(); // kopie
-            list.Add(newRow);             // nebo list[index] = updatedRow
-            DataRows = list;              // přiřazení spustí rerender
+            var list = DataRows.ToList();
+            list.Add(newRow);            
+            DataRows = list;           
         }
         else
         {
-            await DbService.UpdateRowAsync(SelectedTable, keyColumn, EditKey, EditRow, ColumnMeta);
+            await DbService.UpdateRowAsync(SelectedTable, keyColumn, EditKey, EditRow, ColumnsMetaData);
             var updatedRow = await DbService.GetRowByIdAsync(SelectedTable, keyColumn, EditKey);
             var index = DataRows.FindIndex(row => row[keyColumn]?.ToString() == EditKey.ToString());
 
-            var list = DataRows.ToList(); // kopie
+            var list = DataRows.ToList(); 
             if (index >= 0)
                 list[index] = updatedRow;
-            DataRows = list;              // přiřazení spustí rerender
+            DataRows = list;              
         }
 
         EditDialogVisible = false;
@@ -265,7 +258,7 @@ else
         if (SelectedTable is null)
             return;
 
-        var keyColumn = await DbService.GetPrimaryKeyColumnAsync(SelectedTable);
+        var keyColumn = await DbService.GetPrimaryKeyColumnNameAsync(SelectedTable);
         var keyValue = GetPkValue(item);
 
         if (keyColumn is null || keyValue is null)
@@ -277,12 +270,11 @@ else
 
         if (index >= 0)
         {
-            var list = DataRows.ToList(); // kopie
-            list.RemoveAt(index);         // smaže daný řádek podle indexu
-            DataRows = list;              // rerender
+            var list = DataRows.ToList();
+            list.RemoveAt(index);         
+            DataRows = list;              
         }
     }
-
 
     #endregion Create, Show, Edit, Delete
 
@@ -306,7 +298,7 @@ else
         {
             ColumnNames = await DbService.GetColumnNamesOnlyAsync(SelectedTable);
             DataRows = await DbService.GetDataRowsAsync(SelectedTable);
-            ColumnMeta = await DbService.GetColumnMetaAsync(SelectedTable);
+            ColumnsMetaData = await DbService.GetColumnMetaAsync(SelectedTable);
         }
         else
         {
@@ -323,5 +315,4 @@ else
     }
 
     #endregion Other methods
-
 }

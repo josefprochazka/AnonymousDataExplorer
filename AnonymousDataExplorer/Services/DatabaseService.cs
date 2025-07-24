@@ -12,6 +12,8 @@ namespace AnonymousDataExplorer.Services
 		private readonly DbConnection _connection;
 		private readonly DbProvider _provider;
 
+		#region Constructor
+
 		public DatabaseService(DbProvider provider, IConfiguration config)
 		{
 			_provider = provider;
@@ -32,6 +34,10 @@ namespace AnonymousDataExplorer.Services
 			};
 		}
 
+		#endregion
+
+		#region Methods for getting MetaData from DB
+
 		public async Task<List<string>> GetTableNamesAsync() // names of tables in DB for comboBox f.e.
 		{
 			var result = new List<string>();
@@ -48,7 +54,7 @@ namespace AnonymousDataExplorer.Services
 				command.CommandText = "SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE();";
 			else
 				throw new NotSupportedException();
-			
+
 			using var reader = await command.ExecuteReaderAsync();
 			while (await reader.ReadAsync())
 			{
@@ -95,7 +101,7 @@ namespace AnonymousDataExplorer.Services
 			return result;
 		}
 
-		public async Task<string?> GetPrimaryKeyColumnAsync(string tableName) // returns name of column that is marked as PK
+		public async Task<string?> GetPrimaryKeyColumnNameAsync(string tableName) // returns name of column that is marked as PK
 		{
 			if (_connection.State != ConnectionState.Open)
 				await _connection.OpenAsync();
@@ -143,15 +149,93 @@ namespace AnonymousDataExplorer.Services
 			return null;
 		}
 
-		private string Quote(string identifier)
+		public async Task<Dictionary<string, (string DataType, bool IsNotNull)>> GetColumnMetaAsync(string tableName) // returns meta data for tables in DB
 		{
-			return _provider switch
+			var result = new Dictionary<string, (string, bool)>();
+
+			if (_connection.State != ConnectionState.Open)
+				await _connection.OpenAsync();
+
+			using var cmd = _connection.CreateCommand();
+
+			if (_provider == DbProvider.SQLite)
+				cmd.CommandText = $"PRAGMA table_info({Quote(tableName)});";
+			else if (_provider == DbProvider.MSSQL)
+				cmd.CommandText = $@"
+			SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE 
+			FROM INFORMATION_SCHEMA.COLUMNS 
+			WHERE TABLE_NAME = '{tableName}';";
+			else if (_provider == DbProvider.MariaDB)
+				cmd.CommandText = $@"
+			SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE 
+			FROM INFORMATION_SCHEMA.COLUMNS 
+			WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '{tableName}';";
+			else
+				throw new NotSupportedException();
+
+			using var reader = await cmd.ExecuteReaderAsync();
+
+			while (await reader.ReadAsync())
 			{
-				DbProvider.MSSQL => $"[{identifier}]",
-				DbProvider.MariaDB => $"`{identifier}`",
-				DbProvider.SQLite => $"\"{identifier}\"",
-				_ => identifier
-			};
+				string? name = null;
+				string? type = null;
+				bool notNull = false;
+
+				if (_provider == DbProvider.SQLite)
+				{
+					name = reader["name"].ToString();
+					type = reader["type"].ToString();
+					notNull = Convert.ToInt32(reader["notnull"]) == 1;
+				}
+				else
+				{
+					name = reader["COLUMN_NAME"].ToString();
+					type = reader["DATA_TYPE"].ToString();
+					notNull = reader["IS_NULLABLE"].ToString() == "NO";
+				}
+
+				if (!string.IsNullOrEmpty(name))
+					result[name] = (type ?? "", notNull);
+			}
+
+			await _connection.CloseAsync();
+			return result;
+		}
+
+		#endregion Methods for getting MetaData from DB
+
+		#region CRUD methods
+
+		public async Task<List<Dictionary<string, object>>> GetDataRowsAsync(string tableName) // for loading and refresh
+		{
+			var rows = new List<Dictionary<string, object>>();
+			if (_connection.State != ConnectionState.Open)
+				await _connection.OpenAsync();
+
+			using var command = _connection.CreateCommand();
+
+			if (_provider == DbProvider.SQLite)
+				command.CommandText = $"SELECT * FROM \"{tableName}\"";
+			else if (_provider == DbProvider.MSSQL)
+				command.CommandText = $"SELECT * FROM [{tableName}]";
+			else if (_provider == DbProvider.MariaDB)
+				command.CommandText = $"SELECT * FROM `{tableName}`";
+			else
+				throw new NotSupportedException();
+
+			using var reader = await command.ExecuteReaderAsync();
+			while (await reader.ReadAsync())
+			{
+				var row = new Dictionary<string, object>();
+				for (int i = 0; i < reader.FieldCount; i++)
+				{
+					row[reader.GetName(i)] = reader.GetValue(i);
+				}
+				rows.Add(row);
+			}
+
+			await _connection.CloseAsync();
+			return rows;
 		}
 
 		public async Task<Dictionary<string, object>> GetRowByIdAsync(string tableName, string pkColumn, object id)
@@ -189,41 +273,6 @@ namespace AnonymousDataExplorer.Services
 
 			await _connection.CloseAsync();
 			return row;
-		}
-
-
-		#region CRUD methods
-
-		public async Task<List<Dictionary<string, object>>> GetDataRowsAsync(string tableName) // for loading and refresh
-		{
-			var rows = new List<Dictionary<string, object>>();
-			if (_connection.State != ConnectionState.Open)
-				await _connection.OpenAsync();
-
-			using var command = _connection.CreateCommand();
-
-			if (_provider == DbProvider.SQLite)
-				command.CommandText = $"SELECT * FROM \"{tableName}\"";
-			else if (_provider == DbProvider.MSSQL)
-				command.CommandText = $"SELECT * FROM [{tableName}]";
-			else if (_provider == DbProvider.MariaDB)
-				command.CommandText = $"SELECT * FROM `{tableName}`";
-			else
-				throw new NotSupportedException();
-
-			using var reader = await command.ExecuteReaderAsync();
-			while (await reader.ReadAsync())
-			{
-				var row = new Dictionary<string, object>();
-				for (int i = 0; i < reader.FieldCount; i++)
-				{
-					row[reader.GetName(i)] = reader.GetValue(i);
-				}
-				rows.Add(row);
-			}
-
-			await _connection.CloseAsync();
-			return rows;
 		}
 
 		public async Task UpdateRowAsync(string tableName, string keyColumn, object keyValue, Dictionary<string, object> data, Dictionary<string, (string, bool)> columnMeta)
@@ -379,59 +428,20 @@ namespace AnonymousDataExplorer.Services
 
 		#endregion
 
-		public async Task<Dictionary<string, (string DataType, bool IsNotNull)>> GetColumnMetaAsync(string tableName)
+		#region Helper methods
+
+		private string Quote(string identifier)
 		{
-			var result = new Dictionary<string, (string, bool)>();
-
-			if (_connection.State != ConnectionState.Open)
-				await _connection.OpenAsync();
-
-			using var cmd = _connection.CreateCommand();
-
-			if (_provider == DbProvider.SQLite)
-				cmd.CommandText = $"PRAGMA table_info({Quote(tableName)});";
-			else if (_provider == DbProvider.MSSQL)
-				cmd.CommandText = $@"
-			SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE 
-			FROM INFORMATION_SCHEMA.COLUMNS 
-			WHERE TABLE_NAME = '{tableName}';";
-			else if (_provider == DbProvider.MariaDB)
-				cmd.CommandText = $@"
-			SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE 
-			FROM INFORMATION_SCHEMA.COLUMNS 
-			WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '{tableName}';";
-			else
-				throw new NotSupportedException();
-
-			using var reader = await cmd.ExecuteReaderAsync();
-
-			while (await reader.ReadAsync())
+			return _provider switch
 			{
-				string? name = null;
-				string? type = null;
-				bool notNull = false;
-
-				if (_provider == DbProvider.SQLite)
-				{
-					name = reader["name"].ToString();
-					type = reader["type"].ToString();
-					notNull = Convert.ToInt32(reader["notnull"]) == 1;
-				}
-				else
-				{
-					name = reader["COLUMN_NAME"].ToString();
-					type = reader["DATA_TYPE"].ToString();
-					notNull = reader["IS_NULLABLE"].ToString() == "NO";
-				}
-
-				if (!string.IsNullOrEmpty(name))
-					result[name] = (type ?? "", notNull);
-			}
-
-			await _connection.CloseAsync();
-			return result;
+				DbProvider.MSSQL => $"[{identifier}]",
+				DbProvider.MariaDB => $"`{identifier}`",
+				DbProvider.SQLite => $"\"{identifier}\"",
+				_ => identifier
+			};
 		}
 
+		#endregion
 	}
 
 }

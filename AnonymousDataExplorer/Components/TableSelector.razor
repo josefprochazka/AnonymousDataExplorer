@@ -193,7 +193,13 @@ else
     private async Task EditItem(Dictionary<string, object> item, bool isReadOnly)
     {
         EditRow = new(item);
-        EditRowString = item.ToDictionary(x => x.Key, x => x.Value?.ToString() ?? "");
+        EditRowString = ColumnNames.ToDictionary(col =>
+    col,
+    col => item.ContainsKey(col) && item[col] != DBNull.Value
+        ? Convert.ToString(item[col], System.Globalization.CultureInfo.InvariantCulture) ?? ""
+        : ""
+);
+
         EditKey = GetPkValue(item);
         IsReadOnly = isReadOnly;
         PrimaryKeyColumn = await DbService.GetPrimaryKeyColumnNameAsync(SelectedTable);
@@ -309,10 +315,26 @@ else
         ShowGrid = true; // show grid
     }
 
+    // private object? GetPkValue(Dictionary<string, object> item)
+    // {
+    //     return item.TryGetValue(PrimaryKeyColumn, out var value) ? value : null;
+    // }
+
     private object? GetPkValue(Dictionary<string, object> item)
     {
-        return item.Count > 0 ? item.First().Value : null; // PK is loaded first
+        var pkColumn = ColumnsMetaData
+            .FirstOrDefault(kvp =>
+                kvp.Value.Item1.ToLower().Contains("uniqueidentifier") || // MSSQL
+                (kvp.Key.ToLower() == "id" && kvp.Value.Item1.ToLower().StartsWith("char")) // MariaDB
+            ).Key;
+
+        if (string.IsNullOrEmpty(pkColumn))
+            return null;
+
+        return item.TryGetValue(pkColumn, out var idValue) ? idValue : null;
     }
+
+
 
     #endregion Other methods
 }

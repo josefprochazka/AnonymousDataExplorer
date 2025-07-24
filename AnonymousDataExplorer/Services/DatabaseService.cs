@@ -385,6 +385,13 @@ namespace AnonymousDataExplorer.Services
 
 			var idParam = cmd.CreateParameter();
 			idParam.ParameterName = "@id";
+
+			if (_provider == DbProvider.MSSQL)
+			{
+				if (pkValue is string s && Guid.TryParse(s, out var g))
+					pkValue = g;
+			}
+
 			idParam.Value = pkValue;
 			cmd.Parameters.Add(idParam);
 

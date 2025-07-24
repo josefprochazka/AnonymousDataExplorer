@@ -105,6 +105,7 @@ namespace AnonymousDataExplorer.Services
 		{
 			if (_connection.State != ConnectionState.Open)
 				await _connection.OpenAsync();
+
 			using var cmd = _connection.CreateCommand();
 
 			if (_provider == DbProvider.SQLite)
@@ -121,10 +122,10 @@ namespace AnonymousDataExplorer.Services
 			else if (_provider == DbProvider.MSSQL)
 			{
 				cmd.CommandText = $@"
-			SELECT COLUMN_NAME
-			FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE
-			WHERE OBJECTPROPERTY(OBJECT_ID(CONSTRAINT_SCHEMA + '.' + CONSTRAINT_NAME), 'IsPrimaryKey') = 1
-			AND TABLE_NAME = '{tableName}';";
+				SELECT COLUMN_NAME
+				FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE
+				WHERE OBJECTPROPERTY(OBJECT_ID(CONSTRAINT_SCHEMA + '.' + CONSTRAINT_NAME), 'IsPrimaryKey') = 1
+				AND TABLE_NAME = '{tableName}';";
 
 				using var reader = await cmd.ExecuteReaderAsync();
 				if (await reader.ReadAsync())
@@ -133,11 +134,11 @@ namespace AnonymousDataExplorer.Services
 			else if (_provider == DbProvider.MariaDB)
 			{
 				cmd.CommandText = $@"
-			SELECT COLUMN_NAME
-			FROM information_schema.COLUMNS
-			WHERE TABLE_SCHEMA = DATABASE()
-			AND TABLE_NAME = '{tableName}'
-			AND COLUMN_KEY = 'PRI';";
+				SELECT COLUMN_NAME
+				FROM information_schema.COLUMNS
+				WHERE TABLE_SCHEMA = DATABASE()
+				AND TABLE_NAME = '{tableName}'
+				AND COLUMN_KEY = 'PRI';";
 
 				using var reader = await cmd.ExecuteReaderAsync();
 				if (await reader.ReadAsync())
@@ -162,14 +163,14 @@ namespace AnonymousDataExplorer.Services
 				cmd.CommandText = $"PRAGMA table_info({Quote(tableName)});";
 			else if (_provider == DbProvider.MSSQL)
 				cmd.CommandText = $@"
-			SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE 
-			FROM INFORMATION_SCHEMA.COLUMNS 
-			WHERE TABLE_NAME = '{tableName}';";
+				SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE 
+				FROM INFORMATION_SCHEMA.COLUMNS 
+				WHERE TABLE_NAME = '{tableName}';";
 			else if (_provider == DbProvider.MariaDB)
 				cmd.CommandText = $@"
-			SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE 
-			FROM INFORMATION_SCHEMA.COLUMNS 
-			WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '{tableName}';";
+				SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE 
+				FROM INFORMATION_SCHEMA.COLUMNS 
+				WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '{tableName}';";
 			else
 				throw new NotSupportedException();
 
@@ -213,15 +214,7 @@ namespace AnonymousDataExplorer.Services
 				await _connection.OpenAsync();
 
 			using var command = _connection.CreateCommand();
-
-			if (_provider == DbProvider.SQLite)
-				command.CommandText = $"SELECT * FROM \"{tableName}\"";
-			else if (_provider == DbProvider.MSSQL)
-				command.CommandText = $"SELECT * FROM [{tableName}]";
-			else if (_provider == DbProvider.MariaDB)
-				command.CommandText = $"SELECT * FROM `{tableName}`";
-			else
-				throw new NotSupportedException();
+			command.CommandText = $"SELECT * FROM {Quote(tableName)}";
 
 			using var reader = await command.ExecuteReaderAsync();
 			while (await reader.ReadAsync())
@@ -238,21 +231,13 @@ namespace AnonymousDataExplorer.Services
 			return rows;
 		}
 
-		public async Task<Dictionary<string, object>> GetRowByIdAsync(string tableName, string pkColumn, object id)
+		public async Task<Dictionary<string, object>> GetRowByIdAsync(string tableName, string pkColumn, object id) // when update or insert
 		{
 			if (_connection.State != ConnectionState.Open)
 				await _connection.OpenAsync();
 
 			using var command = _connection.CreateCommand();
-
-			if (_provider == DbProvider.SQLite)
-				command.CommandText = $"SELECT * FROM \"{tableName}\" WHERE \"{pkColumn}\" = @id";
-			else if (_provider == DbProvider.MSSQL)
-				command.CommandText = $"SELECT * FROM [{tableName}] WHERE [{pkColumn}] = @id";
-			else if (_provider == DbProvider.MariaDB)
-				command.CommandText = $"SELECT * FROM `{tableName}` WHERE `{pkColumn}` = @id";
-			else
-				throw new NotSupportedException();
+			command.CommandText = $"SELECT * FROM {Quote(tableName)} WHERE {Quote(pkColumn)} = @id";
 
 			var param = command.CreateParameter();
 			param.ParameterName = "@id";
@@ -275,21 +260,18 @@ namespace AnonymousDataExplorer.Services
 			return row;
 		}
 
-		public async Task UpdateRowAsync(string tableName, string keyColumn, object keyValue, Dictionary<string, object> data, Dictionary<string, (string, bool)> columnMeta)
+		public async Task UpdateRowAsync(string tableName, string keyColumn, object keyValue, Dictionary<string, object> data, Dictionary<string, (string, bool)> columnMeta) // editing row
 		{
 			if (_connection.State != ConnectionState.Open)
 				await _connection.OpenAsync();
 
-			var setParts = data.Where(kvp => kvp.Key != keyColumn)
-				.Select(kvp => $"{Quote(kvp.Key)} = @{kvp.Key}")
-				.ToArray();
+			var setForQueryList = data.Where(kvp => kvp.Key != keyColumn).Select(kvp => $"{Quote(kvp.Key)} = @{kvp.Key}").ToArray();
+			var setClause = string.Join(", ", setForQueryList);
 
-			var setClause = string.Join(", ", setParts);
 			string quotedTable = Quote(tableName);
 			string quotedKey = Quote(keyColumn);
 
 			using var command = _connection.CreateCommand();
-
 			command.CommandText = $"UPDATE {quotedTable} SET {setClause} WHERE {quotedKey} = @keyValue";
 
 			foreach (var kvp in data.Where(kvp => kvp.Key != keyColumn))
@@ -297,9 +279,8 @@ namespace AnonymousDataExplorer.Services
 				var param = command.CreateParameter();
 				param.ParameterName = $"@{kvp.Key}";
 
-
 				var columnType = columnMeta[kvp.Key].Item1.ToLower();
-				var raw = kvp.Value?.ToString()?.Trim();
+				var rawValue = kvp.Value?.ToString()?.Trim();
 
 				if (columnType.Contains("date") || columnType.Contains("time"))
 				{
@@ -310,29 +291,25 @@ namespace AnonymousDataExplorer.Services
 				}
 				else if (columnType.Contains("bit") || columnType.Contains("bool"))
 				{
-					param.Value = (raw == "true" || raw == "1") ? 1 : 0;
+					param.Value = (rawValue == "true" || rawValue == "1") ? 1 : 0;
+				}
+				else if (string.IsNullOrWhiteSpace(rawValue))
+				{
+					param.Value = DBNull.Value;
+				}
+				else if (columnType.Contains("int") && int.TryParse(rawValue, out var i))
+				{
+					param.Value = i;
+				}
+				else if ((columnType.Contains("decimal") || columnType.Contains("numeric") || columnType.Contains("float") || columnType.Contains("double") || columnType.Contains("real"))
+						 && double.TryParse(rawValue, out var d))
+				{
+					param.Value = d;
 				}
 				else
 				{
-					if (string.IsNullOrWhiteSpace(raw))
-					{
-						param.Value = DBNull.Value;
-					}
-					else if (columnType.Contains("int") && int.TryParse(raw, out var i))
-					{
-						param.Value = i;
-					}
-					else if ((columnType.Contains("decimal") || columnType.Contains("numeric") || columnType.Contains("float") || columnType.Contains("double") || columnType.Contains("real"))
-							 && double.TryParse(raw, out var d))
-					{
-						param.Value = d;
-					}
-					else
-					{
-						param.Value = raw;
-					}
+					param.Value = rawValue;
 				}
-
 
 				command.Parameters.Add(param);
 			}
@@ -346,36 +323,38 @@ namespace AnonymousDataExplorer.Services
 			await _connection.CloseAsync();
 		}
 
-		public async Task<object?> InsertRowAsync(string tableName, string pkColumn, Dictionary<string, object> data, Dictionary<string, (string, bool)> columnMeta)
+		public async Task<object?> InsertRowAsync(string tableName, string pkColumn, Dictionary<string, object> data, Dictionary<string, (string, bool)> columnMeta) // inserting new row
 		{
 			if (_connection.State != ConnectionState.Open)
 				await _connection.OpenAsync();
 
-			var insertable = data.Where(kvp => kvp.Key != pkColumn);
+			var dataForInsertableColumns = data.Where(kvp => kvp.Key != pkColumn);
 
-			var columns = string.Join(", ", insertable.Select(kvp => Quote(kvp.Key)));
-			var parameters = string.Join(", ", insertable.Select(kvp => $"@{kvp.Key}"));
+			var columns = string.Join(", ", dataForInsertableColumns.Select(kvp => Quote(kvp.Key)));
+			var parameters = string.Join(", ", dataForInsertableColumns.Select(kvp => $"@{kvp.Key}"));
 
 			using var cmd = _connection.CreateCommand();
 			cmd.CommandText = $"{GetInsertQuery(tableName, columns, parameters)}";
 
-			foreach (var kvp in insertable)
+			foreach (var kvp in dataForInsertableColumns)
 			{
 				var param = cmd.CreateParameter();
 				param.ParameterName = $"@{kvp.Key}";
 
 				object value = kvp.Value;
 
-				if (columnMeta.TryGetValue(kvp.Key, out var meta))
+				// convert bool type to database value
+				if (columnMeta.TryGetValue(kvp.Key, out var metaData))
 				{
-					var type = meta.Item1.ToLower();
-					if (type.Contains("bit") || type.Contains("bool"))
+					var columnType = metaData.Item1.ToLower();
+					if (columnType.Contains("bit") || columnType.Contains("bool"))
 					{
-						var val = value?.ToString()?.ToLower();
-						value = (val == "true" || val == "1") ? 1 : 0;
+						var valueToConvert = value?.ToString()?.ToLower();
+						value = (valueToConvert == "true" || valueToConvert == "1") ? 1 : 0;
 					}
 				}
 
+				// set defaul null values
 				if (value is string s && string.IsNullOrWhiteSpace(s))
 					value = DBNull.Value;
 				else if (value is DateTime dt && dt == default)
@@ -393,19 +372,7 @@ namespace AnonymousDataExplorer.Services
 			return newId;
 		}
 
-		private string GetInsertQuery(string tableName, string columns, string parameters)
-		{
-			var quotedTable = Quote(tableName);
-			return _provider switch
-			{
-				DbProvider.SQLite => $"INSERT INTO {quotedTable} ({columns}) VALUES ({parameters}); SELECT last_insert_rowid();",
-				DbProvider.MSSQL => $"INSERT INTO {quotedTable} ({columns}) OUTPUT INSERTED.{Quote("ID")} VALUES ({parameters});",
-				DbProvider.MariaDB => $"INSERT INTO {quotedTable} ({columns}) VALUES ({parameters}); SELECT LAST_INSERT_ID();",
-				_ => throw new NotSupportedException("Unsupported DB type")
-			};
-		}
-
-		public async Task DeleteRowAsync(string tableName, string pkColumn, object pkValue)
+		public async Task DeleteRowAsync(string tableName, string pkColumn, object pkValue) // deleting row
 		{
 			if (_connection.State != ConnectionState.Open)
 				await _connection.OpenAsync();
@@ -425,12 +392,11 @@ namespace AnonymousDataExplorer.Services
 			await _connection.CloseAsync();
 		}
 
-
 		#endregion
 
 		#region Helper methods
 
-		private string Quote(string identifier)
+		private string Quote(string identifier) // set special quotes for each database type
 		{
 			return _provider switch
 			{
@@ -438,6 +404,18 @@ namespace AnonymousDataExplorer.Services
 				DbProvider.MariaDB => $"`{identifier}`",
 				DbProvider.SQLite => $"\"{identifier}\"",
 				_ => identifier
+			};
+		}
+
+		private string GetInsertQuery(string tableName, string columns, string parameters) // get universal INSERT query for each databaze type
+		{
+			var quotedTable = Quote(tableName);
+			return _provider switch
+			{
+				DbProvider.SQLite => $"INSERT INTO {quotedTable} ({columns}) VALUES ({parameters}); SELECT last_insert_rowid();",
+				DbProvider.MSSQL => $"INSERT INTO {quotedTable} ({columns}) OUTPUT INSERTED.{Quote("ID")} VALUES ({parameters});",
+				DbProvider.MariaDB => $"INSERT INTO {quotedTable} ({columns}) VALUES ({parameters}); SELECT LAST_INSERT_ID();",
+				_ => throw new NotSupportedException("Unsupported DB type")
 			};
 		}
 
